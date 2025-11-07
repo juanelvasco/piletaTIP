@@ -56,7 +56,7 @@ pileta-control-acceso/
     │   ├── services/           # API calls
     │   └── App.jsx
     └── package.json
-
+```
 
 
 🗄️ Backend
