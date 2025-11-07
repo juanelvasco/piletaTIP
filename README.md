@@ -1,52 +1,62 @@
 
-📊 Sistema de Control de Acceso para Pileta
-Proyecto: Pileta Control Acceso
- Stack: MERN (MongoDB, Express, React, Node.js)
- Fecha: Noviembre 2025
+# 📊 Sistema de Control de Acceso para Pileta
 
-🎯 Resumen
+**Proyecto:** Pileta Control Acceso  
+**Stack:** MERN (MongoDB, Express, React, Node.js)  
+**Fecha:** Noviembre 2025  
+
+---
+
+## 🎯 Resumen
+
 Este es un sistema completo de control de acceso para una pileta/natatorio que incluye:
-✅ Gestión de usuarios con diferentes roles (admin/usuario)
-✅ Sistema de abonos (mensual, trimestral, semestral, anual)
-✅ Control de pruebas de salud con fechas de vencimiento
-✅ Sistema de escaneo QR para control de acceso
-✅ Reportes y estadísticas de accesos
-✅ Autenticación JWT con bcrypt
-✅ Panel de administración completo
 
-📁 Estructura del Proyecto
+✅ Gestión de usuarios con diferentes roles (admin/usuario)  
+✅ Sistema de abonos (mensual, trimestral, semestral, anual)  
+✅ Control de pruebas de salud con fechas de vencimiento  
+✅ Sistema de escaneo QR para control de acceso  
+✅ Reportes y estadísticas de accesos  
+✅ Autenticación JWT con bcrypt  
+✅ Panel de administración completo  
+
+---
+
+## 📁 Estructura del Proyecto
+
+```bash
 pileta-control-acceso/
 ├── backend/                    # API REST con Express
-│   ├── controllers/           # Lógica de negocio
+│   ├── controllers/            # Lógica de negocio
 │   │   ├── authController.js
 │   │   ├── userController.js
 │   │   ├── abonoController.js
 │   │   ├── saludController.js
 │   │   ├── escaneoController.js
 │   │   └── configController.js
-│   ├── models/                # Modelos de MongoDB
+│   ├── models/                 # Modelos de MongoDB
 │   │   ├── Usuario.js
 │   │   ├── Abono.js
 │   │   ├── Escaneo.js
 │   │   ├── PruebaSalud.js
 │   │   └── Configuracion.js
-│   ├── routes/                # Rutas de la API
-│   ├── middleware/            # Middlewares (auth)
-│   ├── config/                # Configuraciones
-│   ├── server.js             # Punto de entrada
+│   ├── routes/                 # Rutas de la API
+│   ├── middleware/             # Middlewares (auth)
+│   ├── config/                 # Configuraciones
+│   ├── server.js               # Punto de entrada
 │   └── package.json
 │
-└── frontend/                  # React con Vite
+└── frontend/                   # React con Vite
     ├── src/
-    │   ├── pages/            # Páginas de la app
-    │   │   ├── auth/         # Login, Register
-    │   │   ├── user/         # Dashboard usuario
-    │   │   └── admin/        # Panel admin
-    │   ├── components/       # Componentes reutilizables
-    │   ├── context/          # Context API (AuthContext)
-    │   ├── services/         # API calls
+    │   ├── pages/              # Páginas de la app
+    │   │   ├── auth/           # Login, Register
+    │   │   ├── user/           # Dashboard usuario
+    │   │   └── admin/          # Panel admin
+    │   ├── components/         # Componentes reutilizables
+    │   ├── context/            # Context API (AuthContext)
+    │   ├── services/           # API calls
     │   └── App.jsx
     └── package.json
+
 
 
 🗄️ Backend
