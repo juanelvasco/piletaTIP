@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import * as statsService from '../../services/statsService';
 
 function Dashboard() {
   const { user, logout, updateProfile } = useAuth();
@@ -17,6 +18,44 @@ function Dashboard() {
   });
   const [previewImage, setPreviewImage] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  // Estados para estadísticas
+  const [stats, setStats] = useState({
+    totalUsuarios: 0,
+    abonosActivos: 0,
+    accesosHoy: 0,
+    pruebasVigentes: 0
+  });
+  const [loadingStats, setLoadingStats] = useState(true);
+
+  // Cargar estadísticas al montar el componente
+  useEffect(() => {
+    cargarEstadisticas();
+  }, []);
+
+  const cargarEstadisticas = async () => {
+    try {
+      setLoadingStats(true);
+      
+      // Cargar estadísticas en paralelo
+      const [userStats, escaneoStats, saludStats] = await Promise.allSettled([
+        statsService.getUserStats(),
+        statsService.getEscaneoStats().catch(() => ({ hoy: 0 })),
+        statsService.getSaludStats().catch(() => ({ vigentes: 0 }))
+      ]);
+
+      setStats({
+        totalUsuarios: userStats.status === 'fulfilled' ? userStats.value.total : 0,
+        abonosActivos: userStats.status === 'fulfilled' ? userStats.value.conAbono : 0,
+        accesosHoy: escaneoStats.status === 'fulfilled' ? (escaneoStats.value.hoy || 0) : 0,
+        pruebasVigentes: saludStats.status === 'fulfilled' ? (saludStats.value.vigentes || 0) : 0
+      });
+    } catch (error) {
+      console.error('Error cargando estadísticas:', error);
+    } finally {
+      setLoadingStats(false);
+    }
+  };
 
   // Cargar datos del usuario al abrir el modal
   const handleOpenEditModal = () => {
@@ -124,44 +163,60 @@ function Dashboard() {
         {/* Estadísticas rápidas */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           {/* Card Usuarios */}
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Usuarios</p>
-                <p className="text-2xl font-bold text-gray-900">--</p>
+                {loadingStats ? (
+                  <div className="h-8 w-16 bg-gray-200 animate-pulse rounded mt-1"></div>
+                ) : (
+                  <p className="text-2xl font-bold text-gray-900">{stats.totalUsuarios}</p>
+                )}
               </div>
               <div className="text-blue-500 text-4xl">👥</div>
             </div>
           </div>
 
           {/* Card Abonos */}
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Abonos Activos</p>
-                <p className="text-2xl font-bold text-gray-900">--</p>
+                {loadingStats ? (
+                  <div className="h-8 w-16 bg-gray-200 animate-pulse rounded mt-1"></div>
+                ) : (
+                  <p className="text-2xl font-bold text-gray-900">{stats.abonosActivos}</p>
+                )}
               </div>
               <div className="text-green-500 text-4xl">💳</div>
             </div>
           </div>
 
           {/* Card Escaneos Hoy */}
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Accesos Hoy</p>
-                <p className="text-2xl font-bold text-gray-900">--</p>
+                {loadingStats ? (
+                  <div className="h-8 w-16 bg-gray-200 animate-pulse rounded mt-1"></div>
+                ) : (
+                  <p className="text-2xl font-bold text-gray-900">{stats.accesosHoy}</p>
+                )}
               </div>
               <div className="text-purple-500 text-4xl">📱</div>
             </div>
           </div>
 
           {/* Card Pruebas Salud */}
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Pruebas Vigentes</p>
-                <p className="text-2xl font-bold text-gray-900">--</p>
+                {loadingStats ? (
+                  <div className="h-8 w-16 bg-gray-200 animate-pulse rounded mt-1"></div>
+                ) : (
+                  <p className="text-2xl font-bold text-gray-900">{stats.pruebasVigentes}</p>
+                )}
               </div>
               <div className="text-red-500 text-4xl">🏥</div>
             </div>
@@ -191,7 +246,7 @@ function Dashboard() {
             </button>
 
             <button
-              onClick={() => alert('Próximamente: Gestionar Abonos')}
+              onClick={() => navigate('/admin/abonos')}
               className="px-6 py-4 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition text-left"
             >
               <div className="text-2xl mb-2">💳</div>
@@ -201,14 +256,15 @@ function Dashboard() {
           </div>
         </div>
 
-        {/* Mensaje temporal */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
-          <p className="text-blue-800 font-semibold">
-            🚧 Dashboard en construcción
-          </p>
-          <p className="text-blue-600 mt-2">
-            Las estadísticas y funcionalidades completas se agregarán próximamente
-          </p>
+        {/* Botón para recargar estadísticas */}
+        <div className="text-center">
+          <button
+            onClick={cargarEstadisticas}
+            disabled={loadingStats}
+            className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition disabled:bg-gray-400"
+          >
+            {loadingStats ? '🔄 Actualizando...' : '🔄 Actualizar Estadísticas'}
+          </button>
         </div>
       </main>
 

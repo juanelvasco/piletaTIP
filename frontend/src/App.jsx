@@ -11,7 +11,7 @@ import Register from './pages/auth/Register';
 import UserDashboard from './pages/user/Dashboard';
 
 // Páginas de admin
-import AdminDashboard from './pages/admin/Dashboard';
+import AdminDashboard from './pages/admin/dashboard';
 import Usuarios from './pages/admin/Usuarios';
 
 function App() {
@@ -55,11 +55,18 @@ function App() {
             }
           />
 
-        
+          <Route
+            path="/admin/abonos"
+            element={
+              <ProtectedRoute adminOnly={true}>
+                <Usuarios />
+              </ProtectedRoute>
+            }
+          />
           
           {/* Por ahora, las otras rutas de admin redirigen al dashboard */}
           
-          <Route path="/admin/abonos" element={<Navigate to="/admin/dashboard" replace />} />
+          
           <Route path="/admin/salud" element={<Navigate to="/admin/dashboard" replace />} />
           <Route path="/admin/escanear" element={<Navigate to="/admin/dashboard" replace />} />
           <Route path="/admin/reportes" element={<Navigate to="/admin/dashboard" replace />} />

@@ -210,23 +210,26 @@ const actualizarPerfil = async (req, res) => {
   try {
     const { nombre, apellido, email, telefono, fotoPerfil } = req.body;
     
-    // Buscar el usuario actual
-    const usuario = await Usuario.findById(req.userId);
+    // Buscar el usuario actual para verificar rol
+    const usuarioActual = await Usuario.findById(req.userId);
     
-    if (!usuario) {
+    if (!usuarioActual) {
       return res.status(404).json({ 
         message: 'Usuario no encontrado' 
       });
     }
     
+    // Preparar campos a actualizar
+    const camposPermitidos = {};
+    
     // Si es admin, puede cambiar nombre y apellido
-    if (usuario.rol === 'admin') {
-      if (nombre) usuario.nombre = nombre;
-      if (apellido) usuario.apellido = apellido;
+    if (usuarioActual.rol === 'admin') {
+      if (nombre) camposPermitidos.nombre = nombre;
+      if (apellido) camposPermitidos.apellido = apellido;
     }
     
     // Si se intenta cambiar el email, verificar que no exista
-    if (email && email.toLowerCase() !== usuario.email) {
+    if (email && email.toLowerCase() !== usuarioActual.email) {
       const emailExiste = await Usuario.findOne({ 
         email: email.toLowerCase(),
         _id: { $ne: req.userId } 
@@ -238,14 +241,19 @@ const actualizarPerfil = async (req, res) => {
         });
       }
       
-      usuario.email = email.toLowerCase();
+      camposPermitidos.email = email.toLowerCase();
     }
     
     // Actualizar otros campos permitidos
-    if (telefono !== undefined) usuario.telefono = telefono;
-    if (fotoPerfil !== undefined) usuario.fotoPerfil = fotoPerfil;
+    if (telefono !== undefined) camposPermitidos.telefono = telefono;
+    if (fotoPerfil !== undefined) camposPermitidos.fotoPerfil = fotoPerfil;
     
-    await usuario.save();
+    // Usar findByIdAndUpdate para evitar disparar el middleware de password
+    const usuario = await Usuario.findByIdAndUpdate(
+      req.userId,
+      camposPermitidos,
+      { new: true, runValidators: true }
+    );
     
     res.json({
       message: 'Perfil actualizado exitosamente',
