@@ -24,10 +24,16 @@ function Abonos() {
   // Modal crear abono
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({
-    usuario: '',
+    usuarioId: '',
     tipoAbono: 'mensual',
     precio: 0
   });
+
+  // Modal historial
+  const [showHistorial, setShowHistorial] = useState(false);
+  const [historialUsuario, setHistorialUsuario] = useState(null);
+  const [abonosHistorial, setAbonosHistorial] = useState([]);
+  const [loadingHistorial, setLoadingHistorial] = useState(false);
 
   // Precios sugeridos por tipo
   const preciosSugeridos = {
@@ -76,6 +82,27 @@ function Abonos() {
     }
   };
 
+  // Cargar historial de un usuario específico
+  const cargarHistorialUsuario = async (usuario) => {
+    try {
+      setLoadingHistorial(true);
+      setHistorialUsuario(usuario);
+      setShowHistorial(true);
+      
+      // Obtener todos los abonos del usuario
+      const data = await abonoService.getAbonos({ 
+        search: usuario.dni,
+        limit: 100
+      });
+      setAbonosHistorial(data.abonos);
+    } catch (err) {
+      console.error('Error al cargar historial:', err);
+      setAbonosHistorial([]);
+    } finally {
+      setLoadingHistorial(false);
+    }
+  };
+
   useEffect(() => {
     cargarAbonos();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -97,7 +124,7 @@ function Abonos() {
   const handleCrear = async () => {
     await cargarUsuarios();
     setFormData({
-      usuario: '',
+      usuarioId: '',
       tipoAbono: 'mensual',
       precio: preciosSugeridos.mensual
     });
@@ -117,7 +144,7 @@ function Abonos() {
   const handleGuardar = async (e) => {
     e.preventDefault();
     
-    if (!formData.usuario) {
+    if (!formData.usuarioId) {
       alert('Debe seleccionar un usuario');
       return;
     }
@@ -164,6 +191,46 @@ function Abonos() {
       style: 'currency',
       currency: 'ARS'
     }).format(precio);
+  };
+
+  // Calcular días restantes
+  const calcularDiasRestantes = (fechaFin) => {
+    const hoy = new Date();
+    const fin = new Date(fechaFin);
+    const diferencia = fin - hoy;
+    const dias = Math.ceil(diferencia / (1000 * 60 * 60 * 24));
+    return dias > 0 ? dias : 0;
+  };
+
+  // Obtener estado del abono
+  const obtenerEstadoAbono = (abono) => {
+    if (!abono.pagado) {
+      return {
+        texto: 'Pendiente',
+        color: 'bg-yellow-100 text-yellow-800'
+      };
+    }
+
+    const diasRestantes = calcularDiasRestantes(abono.fechaFin);
+    
+    if (diasRestantes === 0) {
+      return {
+        texto: 'Vencido',
+        color: 'bg-red-100 text-red-800'
+      };
+    }
+
+    if (diasRestantes <= 3) {
+      return {
+        texto: 'Por vencer',
+        color: 'bg-orange-100 text-orange-800'
+      };
+    }
+
+    return {
+      texto: 'Activo',
+      color: 'bg-green-100 text-green-800'
+    };
   };
 
   return (
@@ -270,51 +337,59 @@ function Abonos() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {abonos.map((abono) => (
-                    <tr key={abono._id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="font-medium text-gray-900">
-                          {abono.usuario?.nombre} {abono.usuario?.apellido}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          {abono.usuario?.email}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 capitalize">
-                          {abono.tipoAbono}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {formatPrecio(abono.precio)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        <div>{formatFecha(abono.fechaInicio)}</div>
-                        <div className="text-xs text-gray-500">hasta {formatFecha(abono.fechaFin)}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {abono.pagado ? (
-                          <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
-                            Pagado
+                  {abonos.map((abono) => {
+                    const estado = obtenerEstadoAbono(abono);
+                    return (
+                      <tr key={abono._id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="font-medium text-gray-900">
+                            {abono.usuario?.nombre} {abono.usuario?.apellido}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {abono.usuario?.email}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 capitalize">
+                            {abono.tipoAbono}
                           </span>
-                        ) : (
-                          <span className="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800">
-                            Pendiente
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {formatPrecio(abono.precio)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                          <div>{formatFecha(abono.fechaInicio)}</div>
+                          <div className="text-xs text-gray-500">hasta {formatFecha(abono.fechaFin)}</div>
+                          {abono.pagado && (
+                            <div className="text-xs text-purple-600 font-medium mt-1">
+                              {calcularDiasRestantes(abono.fechaFin)} días restantes
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2 py-1 text-xs rounded-full ${estado.color}`}>
+                            {estado.texto}
                           </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        {!abono.pagado && (
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
+                          {!abono.pagado && (
+                            <button
+                              onClick={() => handleMarcarPagado(abono)}
+                              className="text-green-600 hover:text-green-900"
+                            >
+                              Marcar Pagado
+                            </button>
+                          )}
                           <button
-                            onClick={() => handleMarcarPagado(abono)}
-                            className="text-green-600 hover:text-green-900"
+                            onClick={() => cargarHistorialUsuario(abono.usuario)}
+                            className="text-blue-600 hover:text-blue-900"
                           >
-                            Marcar Pagado
+                            Ver Historial
                           </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -356,8 +431,8 @@ function Abonos() {
                 <label className="block text-sm font-medium mb-1 text-gray-700">Usuario *</label>
                 <select
                   required
-                  value={formData.usuario}
-                  onChange={(e) => setFormData({...formData, usuario: e.target.value})}
+                  value={formData.usuarioId}
+                  onChange={(e) => setFormData({...formData, usuarioId: e.target.value})}
                   className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
                 >
                   <option value="">Seleccione un usuario</option>
@@ -420,6 +495,151 @@ function Abonos() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Historial de Usuario */}
+      {showHistorial && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    📋 Historial de Abonos
+                  </h2>
+                  {historialUsuario && (
+                    <p className="text-gray-600 mt-1">
+                      {historialUsuario.nombre} {historialUsuario.apellido} - {historialUsuario.email}
+                    </p>
+                  )}
+                </div>
+                <button
+                  onClick={() => {
+                    setShowHistorial(false);
+                    setHistorialUsuario(null);
+                    setAbonosHistorial([]);
+                  }}
+                  className="text-gray-500 hover:text-gray-700 text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              {loadingHistorial ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+                  <p className="mt-4 text-gray-600">Cargando historial...</p>
+                </div>
+              ) : abonosHistorial.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="text-6xl mb-4">📭</div>
+                  <p className="text-gray-600">Este usuario no tiene abonos registrados</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Resumen */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                    <div className="bg-blue-50 p-4 rounded-lg">
+                      <p className="text-sm text-blue-600 font-medium">Total Abonos</p>
+                      <p className="text-2xl font-bold text-blue-900">{abonosHistorial.length}</p>
+                    </div>
+                    <div className="bg-green-50 p-4 rounded-lg">
+                      <p className="text-sm text-green-600 font-medium">Pagados</p>
+                      <p className="text-2xl font-bold text-green-900">
+                        {abonosHistorial.filter(a => a.pagado).length}
+                      </p>
+                    </div>
+                    <div className="bg-yellow-50 p-4 rounded-lg">
+                      <p className="text-sm text-yellow-600 font-medium">Pendientes</p>
+                      <p className="text-2xl font-bold text-yellow-900">
+                        {abonosHistorial.filter(a => !a.pagado).length}
+                      </p>
+                    </div>
+                    <div className="bg-purple-50 p-4 rounded-lg">
+                      <p className="text-sm text-purple-600 font-medium">Total Recaudado</p>
+                      <p className="text-lg font-bold text-purple-900">
+                        {formatPrecio(abonosHistorial.filter(a => a.pagado).reduce((sum, a) => sum + a.precio, 0))}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Lista de abonos */}
+                  {abonosHistorial.map((abonoHist) => {
+                    const estadoHist = obtenerEstadoAbono(abonoHist);
+                    return (
+                      <div
+                        key={abonoHist._id}
+                        className="border rounded-lg p-4 hover:shadow-md transition"
+                      >
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <span className="text-lg font-semibold capitalize">
+                              {abonoHist.tipoAbono}
+                            </span>
+                            <p className="text-sm text-gray-600">
+                              {formatFecha(abonoHist.fechaInicio)} - {formatFecha(abonoHist.fechaFin)}
+                            </p>
+                          </div>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${estadoHist.color}`}>
+                            {estadoHist.texto}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
+                          <div>
+                            <p className="text-gray-600">Precio</p>
+                            <p className="font-semibold">{formatPrecio(abonoHist.precio)}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-600">Estado de Pago</p>
+                            <p className="font-semibold">
+                              {abonoHist.pagado ? '✓ Pagado' : '⏳ Pendiente'}
+                            </p>
+                          </div>
+                          {abonoHist.metodoPago && abonoHist.metodoPago !== 'pendiente' && (
+                            <div>
+                              <p className="text-gray-600">Método de Pago</p>
+                              <p className="font-semibold capitalize">{abonoHist.metodoPago}</p>
+                            </div>
+                          )}
+                          {abonoHist.pagado && (
+                            <>
+                              <div>
+                                <p className="text-gray-600">Fecha de Pago</p>
+                                <p className="font-semibold">{formatFecha(abonoHist.fechaPago)}</p>
+                              </div>
+                              <div>
+                                <p className="text-gray-600">Días Restantes</p>
+                                <p className="font-semibold">
+                                  {calcularDiasRestantes(abonoHist.fechaFin)} días
+                                </p>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t bg-gray-50">
+              <button
+                onClick={() => {
+                  setShowHistorial(false);
+                  setHistorialUsuario(null);
+                  setAbonosHistorial([]);
+                }}
+                className="w-full px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+              >
+                Cerrar
+              </button>
+            </div>
           </div>
         </div>
       )}

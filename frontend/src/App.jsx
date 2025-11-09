@@ -13,6 +13,7 @@ import UserDashboard from './pages/user/Dashboard';
 // Páginas de admin
 import AdminDashboard from './pages/admin/dashboard';
 import Usuarios from './pages/admin/Usuarios';
+import Abonos from './pages/admin/abonos'; // ✅ AGREGADO
 
 function App() {
   return (
@@ -59,7 +60,7 @@ function App() {
             path="/admin/abonos"
             element={
               <ProtectedRoute adminOnly={true}>
-                <Usuarios />
+                <Abonos /> 
               </ProtectedRoute>
             }
           />
