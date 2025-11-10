@@ -1,16 +1,14 @@
 import axios from 'axios';
 
-
-// URL base del backend
-const API_URL = 'http://localhost:5000/api';
+// URL base del backend - usa variable de entorno o localhost por defecto
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 // Crear instancia de axios con configuración base
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+  baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json'
-  },
-  withCredentials: true
+  }
 });
 
 // Interceptor para agregar token automáticamente
