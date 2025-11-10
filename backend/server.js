@@ -10,6 +10,7 @@ const app = express();
 
 // Middlewares
 app.use(cors());
+
 // Aumentar el límite del body para permitir imágenes en base64
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -65,6 +66,9 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
+
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
+  console.log(`📱 Acceso local: http://localhost:${PORT}`);
+  console.log(`🌐 Acceso red: http://192.168.1.14:${PORT}`);
 });

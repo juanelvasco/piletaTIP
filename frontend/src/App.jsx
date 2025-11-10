@@ -9,11 +9,13 @@ import Register from './pages/auth/Register';
 
 // Páginas de usuario
 import UserDashboard from './pages/user/Dashboard';
+import MiQR from './pages/user/MiQR';
 
 // Páginas de admin
 import AdminDashboard from './pages/admin/dashboard';
 import Usuarios from './pages/admin/Usuarios';
-import Abonos from './pages/admin/abonos'; // ✅ AGREGADO
+import Abonos from './pages/admin/abonos';
+import EscanearQR from './pages/admin/EscanearQR';
 
 function App() {
   return (
@@ -33,6 +35,15 @@ function App() {
             element={
               <ProtectedRoute>
                 <UserDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/usuario/mi-qr"
+            element={
+              <ProtectedRoute>
+                <MiQR />
               </ProtectedRoute>
             }
           />
@@ -60,17 +71,23 @@ function App() {
             path="/admin/abonos"
             element={
               <ProtectedRoute adminOnly={true}>
-                <Abonos /> 
+                <Abonos />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/escanear"
+            element={
+              <ProtectedRoute adminOnly={true}>
+                <EscanearQR />
               </ProtectedRoute>
             }
           />
           
           {/* Por ahora, las otras rutas de admin redirigen al dashboard */}
-          
-          
-          <Route path="/admin/salud" element={<Navigate to="/admin/dashboard" replace />} />
-          <Route path="/admin/escanear" element={<Navigate to="/admin/dashboard" replace />} />
-          <Route path="/admin/reportes" element={<Navigate to="/admin/dashboard" replace />} />
+          <Route path="/admin/salud" element={<Navigate to="/admin/Dashboard" replace />} />
+          <Route path="/admin/reportes" element={<Navigate to="/admin/Dashboard" replace />} />
 
           {/* Ruta 404 */}
           <Route path="*" element={<Navigate to="/login" replace />} />

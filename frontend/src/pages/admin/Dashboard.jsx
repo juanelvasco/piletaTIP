@@ -237,7 +237,7 @@ function Dashboard() {
             </button>
 
             <button
-              onClick={() => alert('Próximamente: Escanear QR')}
+              onClick={() => navigate('/admin/escanear')}
               className="px-6 py-4 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-left"
             >
               <div className="text-2xl mb-2">📱</div>
@@ -388,3 +388,4 @@ function Dashboard() {
 }
 
 export default Dashboard;
+

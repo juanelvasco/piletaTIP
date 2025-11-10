@@ -418,9 +418,17 @@ function Dashboard() {
               {user?.qrCode ? 'Usa este código para ingresar a la pileta' : 'No generado'}
             </p>
             {user?.qrCode && (
-              <div className="bg-gray-50 p-3 rounded">
-                <p className="font-mono text-xs break-all">{user.qrCode}</p>
-              </div>
+              <>
+                <div className="bg-gray-50 p-3 rounded mb-3">
+                  <p className="font-mono text-xs break-all">{user.qrCode}</p>
+                </div>
+                <button
+                  onClick={() => navigate('/usuario/mi-qr')}
+                  className="w-full px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition text-sm font-medium"
+                >
+                  Ver QR Completo
+                </button>
+              </>
             )}
           </div>
 
