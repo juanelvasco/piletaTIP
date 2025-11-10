@@ -2,14 +2,22 @@ const { PruebaSalud, Usuario } = require('../models');
 
 // @desc    Crear o actualizar prueba de salud
 // @route   POST /api/salud
-// @access  Privado (Admin)
+// @access  Privado (Admin o Enfermero)
 const crearOActualizarPrueba = async (req, res) => {
   try {
-    const { usuarioId, notas } = req.body;
+    const { usuarioId, diasValidez = 15, notas } = req.body;
     
     if (!usuarioId) {
       return res.status(400).json({ 
         message: 'El ID del usuario es obligatorio' 
+      });
+    }
+    
+    // Validar diasValidez
+    const dias = parseInt(diasValidez);
+    if (isNaN(dias) || dias < 1 || dias > 365) {
+      return res.status(400).json({ 
+        message: 'Los días de validez deben estar entre 1 y 365' 
       });
     }
     
@@ -24,7 +32,8 @@ const crearOActualizarPrueba = async (req, res) => {
     // Crear o actualizar usando el método del modelo
     const prueba = await PruebaSalud.crearOActualizar(
       usuarioId,
-      req.userId, // Admin que carga la prueba
+      req.userId, // Admin o enfermero que carga la prueba
+      dias,
       notas
     );
     
@@ -120,8 +129,8 @@ const obtenerPruebaPorId = async (req, res) => {
       });
     }
     
-    // Si no es admin, verificar que sea su propia prueba
-    if (req.usuario.rol !== 'admin' && prueba.usuario._id.toString() !== req.userId.toString()) {
+    // Si no es admin o enfermero, verificar que sea su propia prueba
+    if (!['admin', 'enfermero'].includes(req.usuario.rol) && prueba.usuario._id.toString() !== req.userId.toString()) {
       return res.status(403).json({ 
         message: 'No tiene permisos para ver esta prueba' 
       });
@@ -173,10 +182,18 @@ const obtenerMiPrueba = async (req, res) => {
 
 // @desc    Renovar prueba de salud
 // @route   PUT /api/salud/:id/renovar
-// @access  Privado (Admin)
+// @access  Privado (Admin o Enfermero)
 const renovarPrueba = async (req, res) => {
   try {
-    const { notas } = req.body;
+    const { diasValidez = 15, notas } = req.body;
+    
+    // Validar diasValidez
+    const dias = parseInt(diasValidez);
+    if (isNaN(dias) || dias < 1 || dias > 365) {
+      return res.status(400).json({ 
+        message: 'Los días de validez deben estar entre 1 y 365' 
+      });
+    }
     
     const prueba = await PruebaSalud.findById(req.params.id);
     
@@ -187,7 +204,7 @@ const renovarPrueba = async (req, res) => {
     }
     
     // Usar el método del modelo
-    await prueba.renovar(req.userId, notas);
+    await prueba.renovar(req.userId, dias, notas);
     
     res.json({
       message: 'Prueba de salud renovada exitosamente',

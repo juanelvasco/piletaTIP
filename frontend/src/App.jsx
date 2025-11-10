@@ -17,6 +17,11 @@ import Usuarios from './pages/admin/Usuarios';
 import Abonos from './pages/admin/abonos';
 import EscanearQR from './pages/admin/EscanearQR';
 
+// Páginas de enfermero
+import EnfermeroDashboard from './pages/enfermero/Dashboard';
+import CargarApto from './pages/enfermero/CargarApto';
+import EnfermeroUsuarios from './pages/enfermero/Usuarios';
+
 function App() {
   return (
     <AuthProvider>
@@ -88,6 +93,34 @@ function App() {
           {/* Por ahora, las otras rutas de admin redirigen al dashboard */}
           <Route path="/admin/salud" element={<Navigate to="/admin/Dashboard" replace />} />
           <Route path="/admin/reportes" element={<Navigate to="/admin/Dashboard" replace />} />
+
+          {/* Rutas de enfermero */}
+          <Route
+            path="/enfermero/dashboard"
+            element={
+              <ProtectedRoute enfermeroOnly={true}>
+                <EnfermeroDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/enfermero/cargar-apto"
+            element={
+              <ProtectedRoute enfermeroOnly={true}>
+                <CargarApto />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/enfermero/usuarios"
+            element={
+              <ProtectedRoute enfermeroOnly={true}>
+                <EnfermeroUsuarios />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Ruta 404 */}
           <Route path="*" element={<Navigate to="/login" replace />} />

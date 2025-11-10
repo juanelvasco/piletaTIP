@@ -47,7 +47,7 @@ const usuarioSchema = new mongoose.Schema({
   // Rol y acceso
   rol: {
     type: String,
-    enum: ['admin', 'usuario'],
+    enum: ['admin', 'usuario', 'enfermero'],
     default: 'usuario'
   },
   qrCode: {

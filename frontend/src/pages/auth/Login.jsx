@@ -44,6 +44,8 @@ function Login() {
         // Redirigir según el rol
         if (userRole === 'admin') {
           navigate('/admin/dashboard');
+        } else if (userRole === 'enfermero') {
+          navigate('/enfermero/dashboard');
         } else {
           navigate('/usuario/dashboard');
         }

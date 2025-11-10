@@ -12,7 +12,7 @@ const {
   actualizarPruebasVencidas,
   obtenerEstadisticas
 } = require('../controllers/saludController');
-const { verificarToken, verificarAdmin } = require('../middleware/auth');
+const { verificarToken, verificarAdmin, verificarAdminOEnfermero } = require('../middleware/auth');
 
 // ============================================
 // RUTAS ESPECIALES (deben ir PRIMERO)
@@ -20,18 +20,18 @@ const { verificarToken, verificarAdmin } = require('../middleware/auth');
 
 // @route   GET /api/salud/estadisticas
 // @desc    Obtener estadísticas de pruebas de salud
-// @access  Privado (Admin)
-router.get('/estadisticas', verificarToken, verificarAdmin, obtenerEstadisticas);
+// @access  Privado (Admin o Enfermero)
+router.get('/estadisticas', verificarToken, verificarAdminOEnfermero, obtenerEstadisticas);
 
 // @route   GET /api/salud/alertas/pendientes
 // @desc    Obtener pruebas pendientes de alerta
-// @access  Privado (Admin)
-router.get('/alertas/pendientes', verificarToken, verificarAdmin, obtenerAlertasPendientes);
+// @access  Privado (Admin o Enfermero)
+router.get('/alertas/pendientes', verificarToken, verificarAdminOEnfermero, obtenerAlertasPendientes);
 
 // @route   GET /api/salud/vencidas
 // @desc    Obtener pruebas vencidas
-// @access  Privado (Admin)
-router.get('/vencidas', verificarToken, verificarAdmin, obtenerPruebasVencidas);
+// @access  Privado (Admin o Enfermero)
+router.get('/vencidas', verificarToken, verificarAdminOEnfermero, obtenerPruebasVencidas);
 
 // @route   PUT /api/salud/actualizar-vencidas
 // @desc    Actualizar todas las pruebas vencidas
@@ -49,23 +49,23 @@ router.get('/mi-prueba', verificarToken, obtenerMiPrueba);
 
 // @route   GET /api/salud
 // @desc    Obtener todas las pruebas de salud
-// @access  Privado (Admin)
-router.get('/', verificarToken, verificarAdmin, obtenerPruebas);
+// @access  Privado (Admin o Enfermero)
+router.get('/', verificarToken, verificarAdminOEnfermero, obtenerPruebas);
 
 // @route   POST /api/salud
 // @desc    Crear o actualizar prueba de salud
-// @access  Privado (Admin)
-router.post('/', verificarToken, verificarAdmin, crearOActualizarPrueba);
+// @access  Privado (Admin o Enfermero)
+router.post('/', verificarToken, verificarAdminOEnfermero, crearOActualizarPrueba);
 
 // @route   GET /api/salud/:id
 // @desc    Obtener prueba de salud por ID
-// @access  Privado (Admin o Usuario dueño)
+// @access  Privado (Admin, Enfermero o Usuario dueño)
 router.get('/:id', verificarToken, obtenerPruebaPorId);
 
 // @route   PUT /api/salud/:id/renovar
 // @desc    Renovar prueba de salud
-// @access  Privado (Admin)
-router.put('/:id/renovar', verificarToken, verificarAdmin, renovarPrueba);
+// @access  Privado (Admin o Enfermero)
+router.put('/:id/renovar', verificarToken, verificarAdminOEnfermero, renovarPrueba);
 
 // @route   DELETE /api/salud/:id
 // @desc    Eliminar prueba de salud

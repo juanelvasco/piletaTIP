@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useState, useEffect } from 'react';
 import * as authService from '../services/authService';
 
@@ -88,6 +87,11 @@ export const AuthProvider = ({ children }) => {
     return user?.rol === 'admin';
   };
 
+  // Verificar si es enfermero
+  const isEnfermero = () => {
+    return user?.rol === 'enfermero';
+  };
+
   // Verificar si está autenticado
   const isAuthenticated = () => {
     return !!user;
@@ -102,6 +106,7 @@ export const AuthProvider = ({ children }) => {
     logout,
     updateProfile,
     isAdmin,
+    isEnfermero,
     isAuthenticated
   };
 

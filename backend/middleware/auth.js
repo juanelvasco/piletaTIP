@@ -83,6 +83,42 @@ const verificarAdmin = (req, res, next) => {
   next();
 };
 
+// Middleware para verificar que el usuario sea enfermero
+const verificarEnfermero = (req, res, next) => {
+  // Este middleware debe usarse DESPUÉS de verificarToken
+  if (!req.usuario) {
+    return res.status(401).json({ 
+      message: 'No autenticado. Use verificarToken primero.' 
+    });
+  }
+  
+  if (req.usuario.rol !== 'enfermero') {
+    return res.status(403).json({ 
+      message: 'Acceso denegado. Se requieren permisos de enfermero.' 
+    });
+  }
+  
+  next();
+};
+
+// Middleware para verificar que el usuario sea admin o enfermero
+const verificarAdminOEnfermero = (req, res, next) => {
+  // Este middleware debe usarse DESPUÉS de verificarToken
+  if (!req.usuario) {
+    return res.status(401).json({ 
+      message: 'No autenticado. Use verificarToken primero.' 
+    });
+  }
+  
+  if (!['admin', 'enfermero'].includes(req.usuario.rol)) {
+    return res.status(403).json({ 
+      message: 'Acceso denegado. Se requieren permisos de administrador o enfermero.' 
+    });
+  }
+  
+  next();
+};
+
 // Middleware opcional: verificar token pero no requiere autenticación
 const verificarTokenOpcional = async (req, res, next) => {
   try {
@@ -108,5 +144,7 @@ const verificarTokenOpcional = async (req, res, next) => {
 module.exports = {
   verificarToken,
   verificarAdmin,
+  verificarEnfermero,
+  verificarAdminOEnfermero,
   verificarTokenOpcional
 };

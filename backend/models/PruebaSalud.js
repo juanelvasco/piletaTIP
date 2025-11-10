@@ -20,6 +20,15 @@ const pruebaSaludSchema = new mongoose.Schema({
     required: [true, 'La fecha de vencimiento es obligatoria']
   },
   
+  // Días de validez (configurable)
+  diasValidez: {
+    type: Number,
+    required: [true, 'Los días de validez son obligatorios'],
+    default: 15,
+    min: [1, 'Debe ser al menos 1 día'],
+    max: [365, 'No puede ser más de 365 días']
+  },
+  
   // Estado
   vigente: {
     type: Boolean,
@@ -91,11 +100,11 @@ pruebaSaludSchema.virtual('estadoLegible').get(function() {
 
 // MIDDLEWARE: Calcular fecha de vencimiento antes de guardar
 pruebaSaludSchema.pre('save', function(next) {
-  // Si es una prueba nueva o se modificó la fechaPrueba
-  if (this.isNew || this.isModified('fechaPrueba')) {
-    // La prueba vence 15 días después de la fecha de la prueba
+  // Si es una prueba nueva o se modificó la fechaPrueba o diasValidez
+  if (this.isNew || this.isModified('fechaPrueba') || this.isModified('diasValidez')) {
+    // La prueba vence según los días de validez configurados
     const vencimiento = new Date(this.fechaPrueba);
-    vencimiento.setDate(vencimiento.getDate() + 15);
+    vencimiento.setDate(vencimiento.getDate() + this.diasValidez);
     this.fechaVencimiento = vencimiento;
   }
   next();
@@ -112,13 +121,14 @@ pruebaSaludSchema.pre('save', function(next) {
 });
 
 // MÉTODO: Renovar prueba de salud
-pruebaSaludSchema.methods.renovar = async function(adminId, notas = null) {
+pruebaSaludSchema.methods.renovar = async function(enfermeroId, diasValidez = 15, notas = null) {
   this.fechaPrueba = new Date();
+  this.diasValidez = diasValidez;
   // El middleware pre-save calculará automáticamente la nueva fechaVencimiento
   this.vigente = true;
   this.alertaEnviada = false;
   this.fechaAlerta = null;
-  this.cargadoPor = adminId;
+  this.cargadoPor = enfermeroId;
   
   if (notas) {
     this.notas = notas;
@@ -137,19 +147,20 @@ pruebaSaludSchema.methods.marcarAlertaEnviada = async function() {
 };
 
 // MÉTODO ESTÁTICO: Crear o actualizar prueba de salud
-pruebaSaludSchema.statics.crearOActualizar = async function(usuarioId, adminId, notas = null) {
+pruebaSaludSchema.statics.crearOActualizar = async function(usuarioId, enfermeroId, diasValidez = 15, notas = null) {
   // Buscar si ya existe una prueba para este usuario
   let prueba = await this.findOne({ usuario: usuarioId });
   
   if (prueba) {
     // Si existe, renovarla
-    return await prueba.renovar(adminId, notas);
+    return await prueba.renovar(enfermeroId, diasValidez, notas);
   } else {
     // Si no existe, crear una nueva
     prueba = await this.create({
       usuario: usuarioId,
       fechaPrueba: new Date(),
-      cargadoPor: adminId,
+      diasValidez: diasValidez,
+      cargadoPor: enfermeroId,
       notas,
       vigente: true
     });

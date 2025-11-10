@@ -2,8 +2,8 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 // Componente para proteger rutas que requieren autenticación
-export const ProtectedRoute = ({ children, adminOnly = false }) => {
-  const { user, loading, isAdmin } = useAuth();
+export const ProtectedRoute = ({ children, adminOnly = false, enfermeroOnly = false }) => {
+  const { user, loading, isAdmin, isEnfermero } = useAuth();
 
   // Mientras carga, no mostrar nada (o un spinner)
   if (loading) {
@@ -22,8 +22,19 @@ export const ProtectedRoute = ({ children, adminOnly = false }) => {
     return <Navigate to="/login" replace />;
   }
 
-  // Si la ruta requiere admin y no lo es, redirigir al dashboard de usuario
+  // Si la ruta requiere admin y no lo es, redirigir según el rol
   if (adminOnly && !isAdmin()) {
+    if (isEnfermero()) {
+      return <Navigate to="/enfermero/dashboard" replace />;
+    }
+    return <Navigate to="/usuario/dashboard" replace />;
+  }
+
+  // Si la ruta requiere enfermero y no lo es, redirigir según el rol
+  if (enfermeroOnly && !isEnfermero()) {
+    if (isAdmin()) {
+      return <Navigate to="/admin/dashboard" replace />;
+    }
     return <Navigate to="/usuario/dashboard" replace />;
   }
 
