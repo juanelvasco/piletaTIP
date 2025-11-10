@@ -1,260 +1,417 @@
+# 🏊 piletaTIP - Sistema de Control de Acceso para Pileta Municipal
 
-# 📊 Sistema de Control de Acceso para Pileta
+## 📋 Descripción
 
-**Proyecto:** Pileta Control Acceso  
-**Stack:** MERN (MongoDB, Express, React, Node.js)  
-**Fecha:** Noviembre 2025  
-
----
-
-## 🎯 Resumen
-
-Este es un sistema completo de control de acceso para una pileta/natatorio que incluye:
-
-✅ Gestión de usuarios con diferentes roles (admin/usuario)  
-✅ Sistema de abonos (mensual, trimestral, semestral, anual)  
-✅ Control de pruebas de salud con fechas de vencimiento  
-✅ Sistema de escaneo QR para control de acceso  
-✅ Reportes y estadísticas de accesos  
-✅ Autenticación JWT con bcrypt  
-✅ Panel de administración completo  
+Sistema completo de gestión y control de acceso para piletas municipales desarrollado con el stack MERN (MongoDB, Express, React, Node.js). Incluye gestión de usuarios, abonos, códigos QR, escaneo de acceso y reportes administrativos.
 
 ---
 
-## 📁 Estructura del Proyecto
+## 🚀 Características Principales
+
+### 👥 Gestión de Usuarios
+- ✅ Sistema de autenticación JWT con roles (admin/usuario)
+- ✅ Registro y login con validación
+- ✅ Perfiles con foto (base64)
+- ✅ Edición de datos personales
+- ✅ Sistema de baneo temporal
+- ✅ Generación automática de código QR único por usuario
+- ✅ Filtros y búsqueda avanzada
+- ✅ Paginación
+
+### 💳 Sistema de Abonos
+- ✅ 4 tipos de abonos: mensual, trimestral, semestral, anual
+- ✅ Cálculo automático de fecha de vencimiento
+- ✅ Múltiples métodos de pago (efectivo, transferencia, mercadopago)
+- ✅ Marcado de abonos como pagados
+- ✅ Alertas de vencimiento (3 días antes)
+- ✅ Validación automática de vigencia
+- ✅ Historial completo de abonos por usuario
+- ✅ Estadísticas de abonos pagados/pendientes
+- ✅ Filtros por tipo y estado de pago
+
+### 📱 Sistema de QR y Control de Acceso
+- ✅ Generación automática de código QR para cada usuario
+- ✅ Visualización del QR en formato grande (300x300px)
+- ✅ Descarga del QR como imagen PNG
+- ✅ Escaneo con cámara (requiere HTTPS)
+- ✅ Escaneo manual por entrada de código
+- ✅ Validaciones automáticas en tiempo real:
+  - Usuario activo/baneado
+  - Abono existente, pagado y vigente
+  - Prueba de salud vigente
+- ✅ Feedback visual inmediato (verde/rojo)
+- ✅ 8 tipos diferentes de rechazo identificados
+- ✅ Registro completo de todos los escaneos
+- ✅ Historial de accesos por usuario
+- ✅ Estadísticas en tiempo real del día
+- ✅ Campo de notas opcional en cada escaneo
+
+### 📊 Dashboard Administrativo
+- ✅ Estadísticas en tiempo real:
+  - Total de usuarios
+  - Abonos activos
+  - Accesos del día
+  - Pruebas de salud vigentes
+- ✅ Accesos rápidos a todas las funciones
+- ✅ Diseño responsive (móvil y escritorio)
+- ✅ Actualización manual de estadísticas
+
+### 👤 Dashboard de Usuario
+- ✅ Visualización del estado del abono actual
+- ✅ Información detallada de vigencia
+- ✅ Días restantes calculados en tiempo real
+- ✅ Alertas de vencimiento
+- ✅ Historial de abonos personales
+- ✅ Acceso al código QR personal
+- ✅ Historial de accesos a la pileta
+- ✅ Estado de prueba de salud
+
+---
+
+## 🛠️ Tecnologías Utilizadas
+
+### Backend
+- **Node.js** v18+
+- **Express.js** v5.1.0
+- **MongoDB** con Mongoose v8.19.1
+- **JWT** para autenticación
+- **bcrypt** para encriptación de contraseñas
+- **CORS** habilitado
+
+### Frontend
+- **React** v19.1.1
+- **Vite** v7.1.7 (build tool)
+- **React Router DOM** v7.9.4
+- **Axios** v1.12.2
+- **Tailwind CSS** v3.4.18
+- **qrcode** v1.5.4 (generación de QR)
+- **html5-qrcode** v2.3.8 (escaneo de QR)
+
+---
+
+## 📦 Instalación
+
+### Requisitos Previos
+- Node.js v18 o superior
+- MongoDB instalado y corriendo
+- npm o yarn
+
+### 1. Clonar el repositorio
+```bash
+git clone https://github.com/juanelvasco/piletaTIP.git
+cd piletaTIP
+```
+
+### 2. Configurar Backend
 
 ```bash
-pileta-control-acceso/
-├── backend/                    # API REST con Express
-│   ├── controllers/            # Lógica de negocio
+cd backend
+npm install
+```
+
+Crear archivo `.env` en `/backend`:
+```env
+PORT=5000
+MONGODB_URI=mongodb://localhost:27017/pileta-control
+JWT_SECRET=tu_secreto_super_seguro_aqui_cambiar_en_produccion
+```
+
+Iniciar el servidor:
+```bash
+npm start
+```
+
+### 3. Configurar Frontend
+
+```bash
+cd frontend
+npm install
+```
+
+Crear archivo `.env` en `/frontend`:
+```env
+# Para desarrollo local:
+VITE_API_URL=http://localhost:5000/api
+
+# Para acceso desde red local (celular):
+# VITE_API_URL=http://TU_IP:5000/api
+# Ejemplo: VITE_API_URL=http://192.168.1.100:5000/api
+```
+
+Iniciar la aplicación:
+```bash
+npm run dev
+```
+
+---
+
+## 🌐 Acceso desde Dispositivos Móviles
+
+### Configuración para Red Local
+
+Para acceder desde un celular en la misma red WiFi:
+
+#### 1. Obtener tu IP local
+
+**Windows:**
+```bash
+ipconfig
+```
+Busca "Dirección IPv4" (ejemplo: 192.168.1.100)
+
+**Linux/Mac:**
+```bash
+ip addr show
+# o
+ifconfig
+```
+
+#### 2. Configurar Backend
+
+Edita `backend/server.js` - asegúrate de que escuche en `0.0.0.0`:
+```javascript
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Servidor en puerto ${PORT}`);
+});
+```
+
+#### 3. Configurar Frontend
+
+Edita `frontend/vite.config.js`:
+```javascript
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    host: '0.0.0.0',
+    port: 5173,
+  }
+})
+```
+
+Edita `frontend/.env`:
+```env
+VITE_API_URL=http://192.168.1.100:5000/api
+```
+(Reemplaza con tu IP real)
+
+#### 4. Configurar Firewall (Windows)
+
+Ejecutar PowerShell como Administrador:
+```powershell
+New-NetFirewallRule -DisplayName "Backend Port 5000" -Direction Inbound -LocalPort 5000 -Protocol TCP -Action Allow
+New-NetFirewallRule -DisplayName "Frontend Port 5173" -Direction Inbound -LocalPort 5173 -Protocol TCP -Action Allow
+```
+
+#### 5. Reiniciar Servicios
+
+Detén y vuelve a iniciar ambos servicios (Ctrl+C y `npm start` / `npm run dev`)
+
+#### 6. Acceder desde Celular
+
+En el navegador del celular:
+```
+http://192.168.1.100:5173
+```
+(Reemplaza con tu IP real)
+
+### ⚠️ Nota sobre la Cámara en Móviles
+
+Los navegadores modernos **solo permiten acceso a la cámara en:**
+- ✅ `localhost` (funciona en PC)
+- ✅ `https://` (conexión segura)
+- ❌ `http://` en red local
+
+**Soluciones:**
+1. **Usar entrada manual** del código QR (ya implementado)
+2. **Usar ngrok** para crear túnel HTTPS temporal
+3. **Configurar certificados SSL** locales con mkcert
+
+---
+
+## 📱 Estructura del Proyecto
+
+```
+piletaTIP/
+├── backend/
+│   ├── controllers/          # Lógica de negocio
 │   │   ├── authController.js
 │   │   ├── userController.js
 │   │   ├── abonoController.js
-│   │   ├── saludController.js
 │   │   ├── escaneoController.js
-│   │   └── configController.js
-│   ├── models/                 # Modelos de MongoDB
+│   │   └── saludController.js
+│   ├── models/              # Modelos de MongoDB
 │   │   ├── Usuario.js
 │   │   ├── Abono.js
 │   │   ├── Escaneo.js
 │   │   ├── PruebaSalud.js
 │   │   └── Configuracion.js
-│   ├── routes/                 # Rutas de la API
-│   ├── middleware/             # Middlewares (auth)
-│   ├── config/                 # Configuraciones
-│   ├── server.js               # Punto de entrada
+│   ├── routes/              # Rutas de la API
+│   │   ├── auth.js
+│   │   ├── users.js
+│   │   ├── abonos.js
+│   │   ├── escaneos.js
+│   │   └── salud.js
+│   ├── middleware/          # Middlewares
+│   │   └── auth.js
+│   ├── server.js           # Punto de entrada
 │   └── package.json
 │
-└── frontend/                   # React con Vite
+└── frontend/
     ├── src/
-    │   ├── pages/              # Páginas de la app
-    │   │   ├── auth/           # Login, Register
-    │   │   ├── user/           # Dashboard usuario
-    │   │   └── admin/          # Panel admin
+    │   ├── pages/
+    │   │   ├── auth/           # Login y Register
+    │   │   ├── user/           # Dashboard y MiQR
+    │   │   └── admin/          # Dashboard, Usuarios, Abonos, EscanearQR
     │   ├── components/         # Componentes reutilizables
-    │   ├── context/            # Context API (AuthContext)
-    │   ├── services/           # API calls
+    │   │   └── ProtectedRoute.jsx
+    │   ├── context/           # Context API
+    │   │   └── AuthContext.jsx
+    │   ├── services/          # Servicios API
+    │   │   ├── api.js
+    │   │   ├── userService.js
+    │   │   ├── abonoService.js
+    │   │   ├── escaneoService.js
+    │   │   └── statsService.js
     │   └── App.jsx
+    ├── vite.config.js
     └── package.json
 ```
 
+---
 
-🗄️ Backend
-📦 Tecnologías y Dependencias
-{
-  "express": "^5.1.0",
-  "mongoose": "^8.19.1",
-  "bcryptjs": "^3.0.2",
-  "jsonwebtoken": "^9.0.2",
-  "cors": "^2.8.5",
-  "dotenv": "^17.2.3"
-}
+## 🔐 Roles y Permisos
 
-🔐 Sistema de Autenticación
-Características:
-Hash de contraseñas con bcrypt (salt 10)
-Tokens JWT para sesiones
-Middleware de verificación de token
-Roles: admin y usuario
-Rutas de Auth (/api/auth):
-POST /register - Registro de usuarios
-POST /login - Login y generación de token
-GET /me - Obtener perfil (requiere token)
-PUT /me - Actualizar perfil (requiere token)
-PUT /cambiar-password - Cambiar contraseña
-👤 Modelo Usuario
-Campos principales:
-{
-  // Datos personales
-  nombre, apellido, email, password, dni, telefono,
-  
-  // Control de acceso
-  rol: 'admin' | 'usuario',
-  qrCode: "USER-{dni}-{timestamp}-{random}",
-  activo: Boolean,
-  baneado: Boolean,
-  
-  // Referencias
-  abonoActual: ObjectId (ref: Abono),
-  pruebaSalud: ObjectId (ref: PruebaSalud)
-}
+### Usuario Normal
+- ✅ Ver su dashboard personal
+- ✅ Ver su abono actual y vigencia
+- ✅ Ver historial de abonos
+- ✅ Ver y descargar su código QR
+- ✅ Ver historial de accesos
+- ✅ Editar su perfil (email, teléfono, foto)
 
-Funcionalidades destacadas:
-Generación automática de QR único por usuario
-Hash automático de password antes de guardar (pre-save hook)
-Método compararPassword() para login
-Virtual nombreCompleto
-💳 Modelo Abono
-Tipos de abono:
-Mensual: $15,000
-Trimestral: $40,000
-Semestral: $75,000
-Anual: $140,000
-Campos principales:
-{
-  usuario: ObjectId,
-  fechaInicio, fechaFin,
-  tipoAbono: 'mensual' | 'trimestral' | 'semestral' | 'anual',
-  precio: Number,
-  pagado: Boolean,
-  metodoPago: 'efectivo' | 'mercadopago' | 'transferencia',
-  activo: Boolean,
-  mercadoPagoId, mercadoPagoStatus // Para integración futura
-}
+### Administrador
+- ✅ **Todo lo del usuario normal, más:**
+- ✅ Crear, editar y banear usuarios
+- ✅ Crear y gestionar abonos
+- ✅ Marcar abonos como pagados
+- ✅ Escanear códigos QR para control de acceso
+- ✅ Ver historial de accesos de todos
+- ✅ Ver estadísticas generales
+- ✅ Gestionar pruebas de salud
 
-Métodos destacados:
-crearAbono(usuarioId, tipoAbono, precio) - Calcula automáticamente fecha de fin
-marcarComoPagado(metodoPago, transaccionId) - Activa el abono y actualiza usuario
-proximoAVencer() - Detecta abonos que vencen en 3 días
-Virtual vigente - Verifica si el abono está activo y dentro de fechas
-Virtual diasRestantes - Calcula días hasta vencimiento
-🏥 Modelo PruebaSalud
-Características:
-Validez de 15 días desde la fecha de prueba
-Una sola prueba activa por usuario
-Sistema de alertas para vencimientos próximos
-Métodos importantes:
-- crearOActualizar(usuarioId, adminId, notas)
-- renovar(adminId, notas)
-- obtenerPendientesAlerta(diasAntes = 2)
-- obtenerVencidas()
-- actualizarVencidas()
+---
 
-Virtuals:
-diasHastaVencimiento - Días restantes
-estadoLegible - Estado con formato legible ("Vigente - X días", "Crítico", etc.)
-📊 Modelo Escaneo
-Sistema de registro de accesos:
-Motivos de rechazo posibles:
-abono_vencido
-abono_no_pagado
-sin_abono
-usuario_baneado
-usuario_inactivo
-prueba_salud_vencida
-sin_prueba_salud
-qr_invalido
-Métodos de análisis:
-- registrarAcceso(datos)
-- obtenerEstadisticas(filtros)
-- historialUsuario(usuarioId, limite)
-- accesosDia(fecha)
-- rechazosPorMotivo(fechaInicio, fechaFin)
+## 🎯 Tipos de Abonos
 
-⚙️ Modelo Configuración
-Sistema singleton (solo un documento de configuración):
-{
-  tarifas: { mensual, trimestral, semestral, anual },
-  pruebaSalud: { diasValidez: 15, diasAlertaAntes: 2 },
-  abonos: { diasAlertaVencimiento: 3, ... },
-  sistema: { 
-    nombrePileta, 
-    horarioApertura, 
-    horarioCierre, 
-    diasLaborables 
-  },
-  mercadopago: { activo, publicKey, accessToken }
-}
+| Tipo | Duración | Precio Sugerido |
+|------|----------|-----------------|
+| Mensual | 1 mes | $5,000 |
+| Trimestral | 3 meses | $14,000 |
+| Semestral | 6 meses | $26,000 |
+| Anual | 12 meses | $48,000 |
+
+*Los precios son configurables por el administrador*
+
+---
+
+## ⚠️ Motivos de Rechazo en Escaneo
+
+El sistema valida automáticamente y rechaza el acceso por:
+
+| Código | Motivo | Icono |
+|--------|--------|-------|
+| `qr_invalido` | Código QR no existe en el sistema | ❌ |
+| `usuario_inactivo` | Usuario desactivado | ⚠️ |
+| `usuario_baneado` | Usuario ha sido baneado | 🚫 |
+| `sin_abono` | No tiene ningún abono asignado | 💳 |
+| `abono_no_pagado` | Abono creado pero no pagado | 💰 |
+| `abono_vencido` | El abono ya expiró | 📅 |
+| `sin_prueba_salud` | No tiene prueba de salud | 🏥 |
+| `prueba_salud_vencida` | Prueba de salud expiró | 🏥 |
+
+---
+
+## 🔑 API Endpoints
+
+### Autenticación
+```
+POST   /api/auth/register       - Registrar usuario
+POST   /api/auth/login          - Login
+GET    /api/auth/me             - Obtener perfil
+PUT    /api/auth/me             - Actualizar perfil
+```
+
+### Usuarios (Admin)
+```
+GET    /api/users               - Listar usuarios
+GET    /api/users/:id           - Obtener usuario
+POST   /api/users               - Crear usuario
+PUT    /api/users/:id           - Actualizar usuario
+PUT    /api/users/:id/ban       - Banear/desbanear usuario
+```
+
+### Abonos
+```
+GET    /api/abonos              - Listar abonos (Admin)
+POST   /api/abonos              - Crear abono (Admin)
+PUT    /api/abonos/:id/pagar    - Marcar como pagado (Admin)
+GET    /api/abonos/mi-abono     - Mi abono actual (Usuario)
+GET    /api/abonos/mi-historial - Mi historial (Usuario)
+```
+
+### Escaneos
+```
+POST   /api/escaneos/escanear   - Escanear QR (Admin)
+GET    /api/escaneos            - Listar escaneos (Admin)
+GET    /api/escaneos/hoy        - Escaneos del día (Admin)
+GET    /api/escaneos/mi-historial - Mi historial (Usuario)
+```
+
+---
 
 
-⚛️ Frontend 
-📦 Tecnologías
-{
-  "react": "^19.1.1",
-  "react-router-dom": "^7.9.4",
-  "axios": "^1.12.2",
-  "html5-qrcode": "^2.3.8",  // Escaneo de QR
-  "qrcode": "^1.5.4",         // Generación de QR
-  "tailwindcss": "^3.4.18",   // Estilos
-  "vite": "^7.1.7"            // Build tool
-}
 
-🛣️ Rutas del Sistema
-Públicas:
-/login - Página de login
-/register - Registro de usuarios
-Usuario (requiere autenticación):
-/usuario/dashboard - Dashboard del usuario
-Admin (requiere rol admin):
-/admin/dashboard - Dashboard principal
-/admin/usuarios - Gestión de usuarios
-/admin/abonos - Gestión de abonos
-/admin/salud - Gestión de pruebas de salud
-/admin/escanear - Escaneo de QR para acceso
-/admin/reportes - Reportes y estadísticas
-🔒 Sistema de Protección de Rutas
-ProtectedRoute Component:
-Verifica token JWT
-Permite rutas solo para admin con prop adminOnly={true}
-Redirige a login si no autenticado
-Redirige a dashboard de usuario si no es admin
-🎨 Context API
-AuthContext - Manejo de autenticación:
-Estado global de usuario
-Token JWT
-Funciones de login/logout
-Verificación de rol
 
-🔑 Variables de Entorno (.env)
-# Backend
-PORT=5000
-MONGODB_URI=mongodb+srv://admin:password@cluster.mongodb.net/pileta-control
-JWT_SECRET=mi_secreto_super_seguro_para_jwt_2025
-FRONTEND_URL=http://localhost:5173
-MP_ACCESS_TOKEN=tu_token_mercadopago  # Para futuro
+---
 
-⚠️ IMPORTANTE: Las credenciales están expuestas en el archivo .env. En producción deberían estar en variables de entorno del servidor.
+## 📝 TODO / Roadmap
 
-🎯 Funcionalidades Principales
-1. Gestión de Usuarios
-Registro con email único y DNI único
-Login con email/password
-Generación automática de QR personal
-Perfiles con foto (preparado)
-Sistema de baneo temporal
-2. Sistema de Abonos
-4 tipos de abonos con precios configurables
-Cálculo automático de fecha de fin según tipo
-Alertas de vencimiento (3 días antes)
-Múltiples métodos de pago
-Integración preparada para MercadoPago
-3. Control de Salud
-Pruebas válidas por 15 días
-Renovación automática o manual
-Sistema de alertas (2 días antes)
-Una prueba activa por usuario
-4. Control de Acceso
-Escaneo de QR en entrada
-Verificación múltiple:
-✅ Usuario activo y no baneado
-✅ Abono vigente y pagado
-✅ Prueba de salud vigente
-Registro detallado de cada acceso
-Motivos de rechazo específicos
-5. Reportes y Estadísticas
-Accesos diarios
-Estadísticas por período
-Rechazos por motivo
-Historial por usuario
-Usuarios con abonos por vencer
-Pruebas de salud vencidas
+### ✅ Completado
+- [x] Sistema de autenticación
+- [x] Gestión de usuarios
+- [x] Sistema de abonos
+- [x] Códigos QR
+- [x] Escaneo y validación
+- [x] Historial de abonos
+- [x] Historial de accesos
+- [x] Dashboard responsive
+- [x] Acceso desde red local
+
+### 🔄 En Progreso
+- [ ] Gestión completa de pruebas de salud
+- [ ] Página de reportes con gráficos
+- [ ] Sistema de notificaciones
+
+### 📋 Próximas Funcionalidades Posibles
+- [ ] Exportar reportes a PDF/Excel
+- [ ] Integración con MercadoPago
+- [ ] Notificaciones por email/SMS
+- [ ] Panel de configuración avanzada
+- [ ] Modo dark/light
+- [ ] PWA (Progressive Web App)
+- [ ] Backup automático de base de datos
+
+---
+
+## 👨‍💻 Autor
+
+**Juan Hiribarren**
+- GitHub: [@juanelvasco](https://github.com/juanelvasco)
+- Proyecto: [piletaTIP](https://github.com/juanelvasco/piletaTIP)
+
+---
+
+
+*Última actualización: Noviembre 2025*
+
+
