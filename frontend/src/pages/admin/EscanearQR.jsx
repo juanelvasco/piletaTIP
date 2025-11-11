@@ -14,10 +14,15 @@ function EscanearQR() {
   const [modoEscaneo, setModoEscaneo] = useState('camara'); // 'camara' o 'manual'
   const [qrCode, setQrCode] = useState('');
   const [procesando, setProcesando] = useState(false);
-  const [resultado, setResultado] = useState(null);
   const [notas, setNotas] = useState('');
   const [escaneosHoy, setEscaneosHoy] = useState([]);
   const [statsHoy, setStatsHoy] = useState(null);
+
+  // ============================================================================
+  // NUEVO: Estados para modal de resultado
+  // ============================================================================
+  const [showResultModal, setShowResultModal] = useState(false);
+  const [resultData, setResultData] = useState(null);
 
   // Cargar estadísticas del día
   useEffect(() => {
@@ -86,38 +91,37 @@ function EscanearQR() {
     }
   };
 
+  // ============================================================================
+  // NUEVO: Procesar escaneo con modal de resultado
+  // ============================================================================
   const procesarEscaneo = async (codigoQR) => {
     if (procesando) return;
 
     try {
       setProcesando(true);
-      setResultado(null);
 
       const data = await escaneoService.escanearQR(codigoQR, notas);
       
-      setResultado(data);
+      // Preparar datos para el modal
+      setResultData(data);
+      setShowResultModal(true);
+      
       setQrCode('');
       setNotas('');
       
       // Recargar estadísticas
       await cargarEscaneosHoy();
 
-      // Limpiar resultado después de 5 segundos
-      setTimeout(() => {
-        setResultado(null);
-      }, 5000);
-
     } catch (error) {
       const errorData = error.response?.data;
-      setResultado(errorData || {
+      
+      // Mostrar error en modal
+      setResultData(errorData || {
         exitoso: false,
         message: 'Error al procesar el escaneo'
       });
-
-      // Limpiar resultado después de 5 segundos
-      setTimeout(() => {
-        setResultado(null);
-      }, 5000);
+      setShowResultModal(true);
+      
     } finally {
       setProcesando(false);
     }
@@ -141,17 +145,17 @@ function EscanearQR() {
   // Obtener info del motivo
   const obtenerInfoMotivo = (motivoRechazo) => {
     const motivos = {
-      'qr_invalido': { texto: 'QR inválido', color: 'text-red-600' },
-      'usuario_inactivo': { texto: 'Usuario inactivo', color: 'text-orange-600' },
-      'usuario_baneado': { texto: 'Usuario baneado', color: 'text-red-600' },
-      'sin_abono': { texto: 'Sin abono', color: 'text-yellow-600' },
-      'abono_no_pagado': { texto: 'Abono no pagado', color: 'text-yellow-600' },
-      'abono_vencido': { texto: 'Abono vencido', color: 'text-red-600' },
-      'sin_prueba_salud': { texto: 'Sin prueba de salud', color: 'text-purple-600' },
-      'prueba_salud_vencida': { texto: 'Prueba de salud vencida', color: 'text-red-600' }
+      'qr_invalido': { texto: 'QR inválido', color: 'text-red-600', emoji: '🔴' },
+      'usuario_inactivo': { texto: 'Usuario inactivo', color: 'text-orange-600', emoji: '⚠️' },
+      'usuario_baneado': { texto: 'Usuario baneado', color: 'text-red-600', emoji: '🚫' },
+      'sin_abono': { texto: 'Sin abono', color: 'text-yellow-600', emoji: '📭' },
+      'abono_no_pagado': { texto: 'Abono no pagado', color: 'text-yellow-600', emoji: '💳' },
+      'abono_vencido': { texto: 'Abono vencido', color: 'text-red-600', emoji: '⏰' },
+      'sin_prueba_salud': { texto: 'Sin prueba de salud', color: 'text-purple-600', emoji: '🏥' },
+      'prueba_salud_vencida': { texto: 'Prueba de salud vencida', color: 'text-red-600', emoji: '📋' }
     };
 
-    return motivos[motivoRechazo] || { texto: motivoRechazo, color: 'text-gray-600' };
+    return motivos[motivoRechazo] || { texto: motivoRechazo, color: 'text-gray-600', emoji: '❓' };
   };
 
   return (
@@ -267,72 +271,6 @@ function EscanearQR() {
                 </div>
               )}
             </div>
-
-            {/* Resultado del escaneo */}
-            {resultado && (
-              <div
-                className={`rounded-lg shadow-lg p-6 mb-6 border-4 ${
-                  resultado.exitoso
-                    ? 'bg-green-50 border-green-500'
-                    : 'bg-red-50 border-red-500'
-                }`}
-              >
-                <div className="flex items-start gap-4">
-                  <div className="text-6xl">
-                    {resultado.exitoso ? '✅' : '❌'}
-                  </div>
-                  <div className="flex-1">
-                    <h3 className={`text-2xl font-bold mb-2 ${
-                      resultado.exitoso ? 'text-green-900' : 'text-red-900'
-                    }`}>
-                      {resultado.message}
-                    </h3>
-
-                    {resultado.usuario && (
-                      <div className="space-y-2">
-                        <p className="text-lg font-semibold text-gray-900">
-                          {resultado.usuario.nombre} {resultado.usuario.apellido}
-                        </p>
-                        <p className="text-gray-700">DNI: {resultado.usuario.dni}</p>
-
-                        {resultado.exitoso && resultado.usuario.abono && (
-                          <div className="mt-4 bg-white rounded-lg p-4">
-                            <p className="text-sm font-semibold text-gray-900 mb-2">
-                              Información del Abono:
-                            </p>
-                            <div className="grid grid-cols-2 gap-2 text-sm">
-                              <div>
-                                <span className="text-gray-600">Tipo:</span>
-                                <span className="ml-2 font-semibold capitalize">
-                                  {resultado.usuario.abono.tipo}
-                                </span>
-                              </div>
-                              <div>
-                                <span className="text-gray-600">Días restantes:</span>
-                                <span className="ml-2 font-semibold">
-                                  {resultado.usuario.abono.diasRestantes} días
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {!resultado.exitoso && resultado.motivoRechazo && (
-                          <div className="mt-4 bg-white rounded-lg p-4">
-                            <p className="text-sm font-semibold text-red-800">
-                              Motivo del rechazo:
-                            </p>
-                            <p className={`text-sm ${obtenerInfoMotivo(resultado.motivoRechazo).color}`}>
-                              {obtenerInfoMotivo(resultado.motivoRechazo).texto}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Panel derecho - Estadísticas */}
@@ -422,6 +360,181 @@ function EscanearQR() {
           </div>
         </div>
       </main>
+
+      {/* ========================================================================
+          ✨ MODAL DE RESULTADO DEL ESCANEO ✨
+          Muestra el resultado de forma profesional (éxito o rechazo)
+      ======================================================================== */}
+      {showResultModal && resultData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl animate-[fadeIn_0.3s_ease-in-out]">
+            
+            {/* Header dinámico según resultado */}
+            <div className={`p-6 text-center ${
+              resultData.exitoso
+                ? 'bg-gradient-to-r from-green-500 to-emerald-600'
+                : 'bg-gradient-to-r from-red-500 to-rose-600'
+            }`}>
+              <div className="w-24 h-24 bg-white rounded-full mx-auto mb-4 flex items-center justify-center shadow-lg animate-[pulse_1s_ease-in-out]">
+                <span className="text-7xl">{resultData.exitoso ? '✅' : '❌'}</span>
+              </div>
+              <h2 className="text-3xl font-bold text-white mb-2">
+                {resultData.exitoso ? '¡Acceso Permitido!' : 'Acceso Denegado'}
+              </h2>
+              <p className={`text-lg font-medium ${
+                resultData.exitoso ? 'text-green-50' : 'text-red-50'
+              }`}>
+                {resultData.message}
+              </p>
+            </div>
+
+            {/* Contenido del modal */}
+            <div className="p-6 space-y-4">
+              
+              {/* Información del usuario */}
+              {resultData.usuario && (
+                <>
+                  <div className="text-center border-b pb-4">
+                    <h3 className="text-2xl font-bold text-gray-800">
+                      {resultData.usuario.nombre} {resultData.usuario.apellido}
+                    </h3>
+                    <p className="text-gray-600 mt-1">
+                      DNI: <span className="font-semibold">{resultData.usuario.dni}</span>
+                    </p>
+                  </div>
+
+                  {/* Si es exitoso - Mostrar info del abono */}
+                  {resultData.exitoso && resultData.usuario.abono && (
+                    <div className="space-y-3">
+                      <p className="text-sm font-bold text-gray-700 uppercase">Información del Abono</p>
+                      
+                      {/* Tipo de abono */}
+                      <div className="bg-blue-50 rounded-lg p-3 flex items-start border-2 border-blue-200">
+                        <span className="text-2xl mr-3">🎫</span>
+                        <div className="flex-1">
+                          <p className="text-xs text-blue-600 font-medium">Tipo de Abono</p>
+                          <p className="text-sm text-gray-800 font-bold capitalize">
+                            {resultData.usuario.abono.tipo}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Días restantes */}
+                      <div className={`rounded-lg p-3 flex items-start border-2 ${
+                        resultData.usuario.abono.diasRestantes > 7
+                          ? 'bg-green-50 border-green-200'
+                          : resultData.usuario.abono.diasRestantes > 3
+                          ? 'bg-yellow-50 border-yellow-200'
+                          : 'bg-orange-50 border-orange-200'
+                      }`}>
+                        <span className="text-2xl mr-3">
+                          {resultData.usuario.abono.diasRestantes > 7 ? '✅' : 
+                           resultData.usuario.abono.diasRestantes > 3 ? '⚠️' : '⏰'}
+                        </span>
+                        <div className="flex-1">
+                          <p className={`text-xs font-medium ${
+                            resultData.usuario.abono.diasRestantes > 7 ? 'text-green-600' :
+                            resultData.usuario.abono.diasRestantes > 3 ? 'text-yellow-600' : 'text-orange-600'
+                          }`}>
+                            Días Restantes
+                          </p>
+                          <p className="text-2xl font-bold text-gray-800">
+                            {resultData.usuario.abono.diasRestantes} 
+                            <span className="text-sm font-normal ml-1">días</span>
+                          </p>
+                          {resultData.usuario.abono.diasRestantes <= 7 && (
+                            <p className="text-xs text-gray-600 mt-1">
+                              {resultData.usuario.abono.diasRestantes <= 3 
+                                ? '⚠️ Abono próximo a vencer' 
+                                : 'Considerar renovación pronto'}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Hora de acceso */}
+                      <div className="bg-gray-50 rounded-lg p-3 flex items-start">
+                        <span className="text-2xl mr-3">🕐</span>
+                        <div className="flex-1">
+                          <p className="text-xs text-gray-500 font-medium">Hora de Acceso</p>
+                          <p className="text-sm text-gray-800 font-semibold">
+                            {new Date().toLocaleTimeString('es-AR', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              second: '2-digit'
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Si es rechazo - Mostrar motivo */}
+                  {!resultData.exitoso && resultData.motivoRechazo && (
+                    <div className="space-y-3">
+                      <p className="text-sm font-bold text-gray-700 uppercase">Motivo del Rechazo</p>
+                      
+                      <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                        <div className="flex items-start">
+                          <span className="text-3xl mr-3">
+                            {obtenerInfoMotivo(resultData.motivoRechazo).emoji}
+                          </span>
+                          <div className="flex-1">
+                            <p className={`text-lg font-bold ${obtenerInfoMotivo(resultData.motivoRechazo).color}`}>
+                              {obtenerInfoMotivo(resultData.motivoRechazo).texto}
+                            </p>
+                            <p className="text-sm text-gray-600 mt-2">
+                              {resultData.motivoRechazo === 'qr_invalido' && 'El código QR no es válido o no existe en el sistema.'}
+                              {resultData.motivoRechazo === 'usuario_inactivo' && 'El usuario debe activar su cuenta.'}
+                              {resultData.motivoRechazo === 'usuario_baneado' && 'El usuario ha sido suspendido del sistema.'}
+                              {resultData.motivoRechazo === 'sin_abono' && 'El usuario no tiene un abono asignado.'}
+                              {resultData.motivoRechazo === 'abono_no_pagado' && 'El abono existe pero aún no ha sido pagado.'}
+                              {resultData.motivoRechazo === 'abono_vencido' && 'El abono ha expirado. Debe renovarse.'}
+                              {resultData.motivoRechazo === 'sin_prueba_salud' && 'Falta el certificado de aptitud física.'}
+                              {resultData.motivoRechazo === 'prueba_salud_vencida' && 'El certificado de aptitud ha vencido.'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Instrucciones para el usuario */}
+                      <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4">
+                        <div className="flex items-start">
+                          <span className="text-2xl mr-3">💡</span>
+                          <div className="flex-1">
+                            <p className="text-xs text-yellow-700 font-bold uppercase mb-1">Acción Requerida</p>
+                            <p className="text-sm text-gray-700">
+                              {resultData.motivoRechazo === 'sin_abono' && 'El usuario debe adquirir un abono para acceder.'}
+                              {resultData.motivoRechazo === 'abono_no_pagado' && 'El usuario debe completar el pago de su abono.'}
+                              {resultData.motivoRechazo === 'abono_vencido' && 'El usuario debe renovar su abono.'}
+                              {resultData.motivoRechazo === 'sin_prueba_salud' && 'El usuario debe presentar su certificado de aptitud física.'}
+                              {resultData.motivoRechazo === 'prueba_salud_vencida' && 'El usuario debe renovar su certificado de aptitud física.'}
+                              {(resultData.motivoRechazo === 'usuario_baneado' || resultData.motivoRechazo === 'usuario_inactivo') && 'Contactar con administración.'}
+                              {resultData.motivoRechazo === 'qr_invalido' && 'Verificar el código QR del usuario.'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Botón cerrar */}
+              <button
+                onClick={() => setShowResultModal(false)}
+                className={`w-full mt-6 py-3 text-white font-bold rounded-lg transition-all shadow-md hover:shadow-lg ${
+                  resultData.exitoso
+                    ? 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700'
+                    : 'bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700'
+                }`}
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

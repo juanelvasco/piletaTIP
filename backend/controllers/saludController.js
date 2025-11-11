@@ -29,6 +29,10 @@ const crearOActualizarPrueba = async (req, res) => {
       });
     }
     
+    // 🔧 CORRECCIÓN: Verificar primero si existe una prueba para este usuario
+    const pruebaExistente = await PruebaSalud.findOne({ usuario: usuarioId });
+    const esNueva = !pruebaExistente;
+    
     // Crear o actualizar usando el método del modelo
     const prueba = await PruebaSalud.crearOActualizar(
       usuarioId,
@@ -38,8 +42,8 @@ const crearOActualizarPrueba = async (req, res) => {
     );
     
     res.status(201).json({
-      message: prueba.isNew ? 'Prueba de salud creada exitosamente' : 'Prueba de salud renovada exitosamente',
-      prueba
+      message: esNueva ? 'Prueba de salud creada exitosamente' : 'Prueba de salud renovada exitosamente',
+      pruebaSalud: prueba
     });
     
   } catch (error) {
@@ -298,16 +302,16 @@ const obtenerPruebasVencidas = async (req, res) => {
   }
 };
 
-// @desc    Actualizar pruebas vencidas (marcarlas como no vigentes)
+// @desc    Actualizar estado de pruebas vencidas
 // @route   PUT /api/salud/actualizar-vencidas
 // @access  Privado (Admin)
 const actualizarPruebasVencidas = async (req, res) => {
   try {
-    const resultado = await PruebaSalud.actualizarVencidas();
+    const resultado = await PruebaSalud.marcarVencidas();
     
     res.json({
-      message: 'Pruebas vencidas actualizadas exitosamente',
-      pruebasActualizadas: resultado.modifiedCount
+      message: 'Pruebas vencidas actualizadas',
+      modificadas: resultado.modifiedCount
     });
     
   } catch (error) {
@@ -324,9 +328,20 @@ const actualizarPruebasVencidas = async (req, res) => {
 // @access  Privado (Admin)
 const obtenerEstadisticas = async (req, res) => {
   try {
-    const estadisticas = await PruebaSalud.obtenerEstadisticas();
+    const total = await PruebaSalud.countDocuments();
+    const vigentes = await PruebaSalud.countDocuments({ vigente: true });
+    const vencidas = await PruebaSalud.countDocuments({ vigente: false });
+    const alertasPendientes = await PruebaSalud.countDocuments({ 
+      vigente: true, 
+      alertaEnviada: false 
+    });
     
-    res.json(estadisticas);
+    res.json({
+      total,
+      vigentes,
+      vencidas,
+      alertasPendientes
+    });
     
   } catch (error) {
     console.error('Error en obtenerEstadisticas:', error);

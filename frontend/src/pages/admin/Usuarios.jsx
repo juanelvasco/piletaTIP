@@ -2,7 +2,7 @@
 // PÁGINA: Panel de Usuarios del Administrador
 // UBICACIÓN: frontend/src/pages/admin/Usuarios.jsx
 // DESCRIPCIÓN: Gestión completa de usuarios (crear, editar, banear, filtrar)
-//              CON MODAL DE ÉXITO MEJORADO
+//              ✨ TODOS LOS MODALES MEJORADOS - INCLUYE MODAL DE ÉXITO PARA EDICIÓN ✨
 // ============================================================================
 
 import { useState, useEffect } from 'react';
@@ -51,10 +51,11 @@ function Usuarios() {
   const [motivoBaneo, setMotivoBaneo] = useState('');
 
   // ============================================================================
-  // NUEVO: Estados para modal de éxito con resumen del usuario
+  // NUEVO: Estados para modales de éxito (creación Y edición)
   // ============================================================================
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [createdUser, setCreatedUser] = useState(null); // Usuario recién creado
+  const [successData, setSuccessData] = useState(null); // Datos del usuario procesado
+  const [successType, setSuccessType] = useState('create'); // 'create' o 'edit'
 
   // ============================================================================
   // FUNCIÓN: Cargar lista de usuarios del backend
@@ -170,47 +171,63 @@ function Usuarios() {
 
   // ============================================================================
   // FUNCIÓN: Guardar usuario (crear o actualizar)
-  // NUEVO: Muestra modal de éxito con resumen si es creación
+  // NUEVO: Muestra modal de éxito tanto para creación como edición
   // ============================================================================
   const handleGuardar = async (e) => {
     e.preventDefault();
     
     try {
       if (editingUser) {
+        // ========================================
         // MODO EDICIÓN: Actualizar usuario existente
+        // ========================================
         const dataToSend = {...formData};
         if (!dataToSend.password) {
           delete dataToSend.password;
         }
-        await userService.updateUser(editingUser._id, dataToSend);
         
-        // Cerrar modal de edición
+        const response = await userService.updateUser(editingUser._id, dataToSend);
+        
+        // Preparar datos para el modal de éxito (EDICIÓN)
+        setSuccessData({
+          ...formData,
+          id: editingUser._id,
+          qrCode: response.usuario?.qrCode || editingUser.qrCode || 'No disponible',
+          cambiosRealizados: {
+            nombre: editingUser.nombre !== formData.nombre,
+            apellido: editingUser.apellido !== formData.apellido,
+            email: editingUser.email !== formData.email,
+            dni: editingUser.dni !== formData.dni,
+            telefono: editingUser.telefono !== formData.telefono,
+            rol: editingUser.rol !== formData.rol,
+            fotoPerfil: editingUser.fotoPerfil !== formData.fotoPerfil,
+            password: !!formData.password
+          }
+        });
+        
+        setSuccessType('edit');
         setShowModal(false);
         setPreviewImage(null);
+        setShowSuccessModal(true);
         cargarUsuarios();
         
-        // Mostrar alerta simple para edición
-        alert('✅ Usuario actualizado exitosamente');
-        
       } else {
+        // ========================================
         // MODO CREACIÓN: Crear nuevo usuario
+        // ========================================
         const response = await userService.createUser(formData);
         
-        // Guardar usuario creado para mostrar en modal de éxito
-        setCreatedUser({
+        // Preparar datos para el modal de éxito (CREACIÓN)
+        setSuccessData({
           ...formData,
           qrCode: response.usuario?.qrCode || 'Generado automáticamente',
           id: response.usuario?._id
         });
         
-        // Cerrar modal de creación
+        setSuccessType('create');
         setShowModal(false);
         setPreviewImage(null);
-        
-        // Mostrar modal de éxito con resumen
         setShowSuccessModal(true);
-        
-        // Recargar lista de usuarios
         cargarUsuarios();
       }
     } catch (err) {
@@ -223,7 +240,8 @@ function Usuarios() {
   // ============================================================================
   const handleCloseSuccessModal = () => {
     setShowSuccessModal(false);
-    setCreatedUser(null);
+    setSuccessData(null);
+    setSuccessType('create');
   };
 
   // ============================================================================
@@ -327,7 +345,6 @@ function Usuarios() {
               className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
             />
 
-            {/* Filtro por rol - INCLUYE ENFERMERO */}
             <select
               value={filtroRol}
               onChange={(e) => setFiltroRol(e.target.value)}
@@ -517,141 +534,205 @@ function Usuarios() {
       </main>
 
       {/* ======================================================================
-          MODAL: CREAR/EDITAR USUARIO
+          ✨ MODAL MEJORADO: CREAR/EDITAR USUARIO ✨
       ====================================================================== */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-lg max-w-2xl w-full p-6 my-8">
-            <h2 className="text-2xl font-bold mb-4 text-gray-900">
-              {editingUser ? 'Editar Usuario' : 'Nuevo Usuario'}
-            </h2>
+          <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl my-8 animate-[fadeIn_0.3s_ease-in-out]">
             
-            <form onSubmit={handleGuardar} className="space-y-4">
+            {/* Header con gradiente */}
+            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-6 rounded-t-2xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg">
+                    <span className="text-3xl">{editingUser ? '✏️' : '👤'}</span>
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-white">
+                      {editingUser ? 'Editar Usuario' : 'Nuevo Usuario'}
+                    </h2>
+                    <p className="text-blue-100 text-sm">
+                      {editingUser ? 'Actualiza la información del usuario' : 'Completa el formulario para crear un usuario'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowModal(false);
+                    setPreviewImage(null);
+                  }}
+                  className="text-white hover:bg-white hover:bg-opacity-20 rounded-full w-8 h-8 flex items-center justify-center transition-all"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+            
+            {/* Contenido del formulario */}
+            <form onSubmit={handleGuardar} className="p-6 space-y-5">
               
-              {/* Foto de perfil */}
-              <div className="flex flex-col items-center mb-4">
-                <div className="mb-2">
+              {/* Foto de perfil mejorada */}
+              <div className="flex flex-col items-center pb-4 border-b border-gray-200">
+                <div className="relative mb-3">
                   <img
                     src={previewImage || 'https://ui-avatars.com/api/?name=Usuario&background=3B82F6&color=fff&size=128'}
                     alt="Preview"
-                    className="h-24 w-24 rounded-full object-cover border-4 border-gray-200"
+                    className="h-28 w-28 rounded-full object-cover border-4 border-blue-100 shadow-lg"
                   />
+                  <div className="absolute bottom-0 right-0 bg-blue-500 rounded-full p-2 shadow-lg">
+                    <span className="text-white text-xl">📷</span>
+                  </div>
                 </div>
-                <label className="cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageChange}
-                    className="hidden"
-                  />
-                  {previewImage ? 'Cambiar foto' : 'Subir foto'}
-                </label>
-                {previewImage && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFormData({ ...formData, fotoPerfil: null });
-                      setPreviewImage(null);
-                    }}
-                    className="mt-2 text-red-600 text-sm hover:text-red-800"
-                  >
-                    Eliminar foto
-                  </button>
-                )}
+                
+                <div className="flex gap-2">
+                  <label className="cursor-pointer bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-md">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                      className="hidden"
+                    />
+                    {previewImage ? '🔄 Cambiar foto' : '📁 Subir foto'}
+                  </label>
+                  
+                  {previewImage && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData({ ...formData, fotoPerfil: null });
+                        setPreviewImage(null);
+                      }}
+                      className="px-4 py-2 bg-red-100 text-red-600 rounded-lg text-sm font-medium hover:bg-red-200 transition-all"
+                    >
+                      🗑️ Eliminar
+                    </button>
+                  )}
+                </div>
+                <p className="text-xs text-gray-500 mt-2">Máximo 2MB - JPG, PNG o GIF</p>
               </div>
 
+              {/* Campos del formulario con iconos */}
               <div className="grid grid-cols-2 gap-4">
+                {/* Nombre */}
                 <div>
-                  <label className="block text-sm font-medium mb-1 text-gray-700">Nombre *</label>
+                  <label className="block text-sm font-semibold mb-2 text-gray-700 flex items-center">
+                    <span className="mr-2">👤</span> Nombre *
+                  </label>
                   <input
                     type="text"
                     required
                     value={formData.nombre}
                     onChange={(e) => setFormData({...formData, nombre: e.target.value})}
-                    className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                    placeholder="Ej: Juan"
                   />
                 </div>
+                
+                {/* Apellido */}
                 <div>
-                  <label className="block text-sm font-medium mb-1 text-gray-700">Apellido *</label>
+                  <label className="block text-sm font-semibold mb-2 text-gray-700 flex items-center">
+                    <span className="mr-2">👤</span> Apellido *
+                  </label>
                   <input
                     type="text"
                     required
                     value={formData.apellido}
                     onChange={(e) => setFormData({...formData, apellido: e.target.value})}
-                    className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                    placeholder="Ej: Pérez"
                   />
                 </div>
               </div>
 
+              {/* Email */}
               <div>
-                <label className="block text-sm font-medium mb-1 text-gray-700">Email *</label>
+                <label className="block text-sm font-semibold mb-2 text-gray-700 flex items-center">
+                  <span className="mr-2">📧</span> Email *
+                </label>
                 <input
                   type="email"
                   required
                   value={formData.email}
                   onChange={(e) => setFormData({...formData, email: e.target.value})}
-                  className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                  className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                  placeholder="ejemplo@correo.com"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
+                {/* DNI */}
                 <div>
-                  <label className="block text-sm font-medium mb-1 text-gray-700">DNI *</label>
+                  <label className="block text-sm font-semibold mb-2 text-gray-700 flex items-center">
+                    <span className="mr-2">🆔</span> DNI *
+                  </label>
                   <input
                     type="text"
                     required
                     value={formData.dni}
                     onChange={(e) => setFormData({...formData, dni: e.target.value})}
-                    className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                    placeholder="12345678"
                   />
                 </div>
+                
+                {/* Teléfono */}
                 <div>
-                  <label className="block text-sm font-medium mb-1 text-gray-700">Teléfono</label>
+                  <label className="block text-sm font-semibold mb-2 text-gray-700 flex items-center">
+                    <span className="mr-2">📱</span> Teléfono
+                  </label>
                   <input
                     type="text"
                     value={formData.telefono}
                     onChange={(e) => setFormData({...formData, telefono: e.target.value})}
-                    className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                    placeholder="Opcional"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
+                {/* Contraseña */}
                 <div>
-                  <label className="block text-sm font-medium mb-1 text-gray-700">
-                    Contraseña {editingUser ? '' : '*'}
+                  <label className="block text-sm font-semibold mb-2 text-gray-700 flex items-center">
+                    <span className="mr-2">🔒</span> Contraseña {editingUser ? '' : '*'}
                   </label>
                   <input
                     type="password"
                     required={!editingUser}
                     value={formData.password}
                     onChange={(e) => setFormData({...formData, password: e.target.value})}
-                    className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
-                    placeholder={editingUser ? 'Dejar vacío para no cambiar' : ''}
+                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                    placeholder={editingUser ? 'Dejar vacío para no cambiar' : '••••••••'}
                   />
+                  {editingUser && (
+                    <p className="text-xs text-gray-500 mt-1">Dejar vacío para mantener la contraseña actual</p>
+                  )}
                 </div>
                 
-                {/* Campo: Rol - INCLUYE ENFERMERO */}
+                {/* Rol */}
                 <div>
-                  <label className="block text-sm font-medium mb-1 text-gray-700">Rol *</label>
+                  <label className="block text-sm font-semibold mb-2 text-gray-700 flex items-center">
+                    <span className="mr-2">🎭</span> Rol *
+                  </label>
                   <select
                     value={formData.rol}
                     onChange={(e) => setFormData({...formData, rol: e.target.value})}
-                    className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white"
                   >
-                    <option value="usuario">Usuario</option>
-                    <option value="enfermero">Enfermero</option>
-                    <option value="admin">Admin</option>
+                    <option value="usuario">👤 Usuario</option>
+                    <option value="enfermero">🏥 Enfermero</option>
+                    <option value="admin">👑 Administrador</option>
                   </select>
                 </div>
               </div>
 
-              <div className="flex gap-3 mt-6">
+              {/* Botones de acción */}
+              <div className="flex gap-3 pt-4 border-t border-gray-200">
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                  className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-bold rounded-lg transition-all shadow-md hover:shadow-lg"
                 >
-                  {editingUser ? 'Guardar Cambios' : 'Crear Usuario'}
+                  {editingUser ? '✅ Guardar Cambios' : '✨ Crear Usuario'}
                 </button>
                 <button
                   type="button"
@@ -659,7 +740,7 @@ function Usuarios() {
                     setShowModal(false);
                     setPreviewImage(null);
                   }}
-                  className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+                  className="flex-1 px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold rounded-lg transition-all"
                 >
                   Cancelar
                 </button>
@@ -670,23 +751,31 @@ function Usuarios() {
       )}
 
       {/* ======================================================================
-          MODAL DE ÉXITO: Muestra resumen del usuario creado
-          Este modal aparece después de crear un usuario exitosamente
+          ✨ MODAL DE ÉXITO UNIFICADO ✨
+          Muestra información tanto para creación como edición de usuarios
       ====================================================================== */}
-      {showSuccessModal && createdUser && (
+      {showSuccessModal && successData && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl max-w-md w-full overflow-hidden shadow-2xl animate-[fadeIn_0.3s_ease-in-out]">
             
-            {/* Header con gradiente */}
-            <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-6 text-center">
+            {/* Header con gradiente dinámico */}
+            <div className={`p-6 text-center ${
+              successType === 'create'
+                ? 'bg-gradient-to-r from-green-500 to-emerald-600'
+                : 'bg-gradient-to-r from-blue-500 to-indigo-600'
+            }`}>
               <div className="w-20 h-20 bg-white rounded-full mx-auto mb-4 flex items-center justify-center shadow-lg">
-                <span className="text-5xl">✅</span>
+                <span className="text-5xl">{successType === 'create' ? '✅' : '✏️'}</span>
               </div>
               <h2 className="text-2xl font-bold text-white mb-2">
-                ¡Usuario Creado!
+                {successType === 'create' ? '¡Usuario Creado!' : '¡Usuario Actualizado!'}
               </h2>
-              <p className="text-green-50 text-sm">
-                El usuario ha sido registrado exitosamente en el sistema
+              <p className={`text-sm ${
+                successType === 'create' ? 'text-green-50' : 'text-blue-50'
+              }`}>
+                {successType === 'create' 
+                  ? 'El usuario ha sido registrado exitosamente en el sistema'
+                  : 'Los cambios han sido guardados correctamente'}
               </p>
             </div>
 
@@ -695,15 +784,19 @@ function Usuarios() {
               
               {/* Foto de perfil del usuario */}
               <div className="flex justify-center">
-                {createdUser.fotoPerfil ? (
+                {successData.fotoPerfil ? (
                   <img
-                    src={createdUser.fotoPerfil}
+                    src={successData.fotoPerfil}
                     alt="Usuario"
-                    className="w-24 h-24 rounded-full object-cover border-4 border-green-100 shadow-md"
+                    className={`w-24 h-24 rounded-full object-cover border-4 shadow-md ${
+                      successType === 'create' ? 'border-green-100' : 'border-blue-100'
+                    }`}
                   />
                 ) : (
-                  <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-3xl font-bold border-4 border-green-100 shadow-md">
-                    {createdUser.nombre.charAt(0)}{createdUser.apellido.charAt(0)}
+                  <div className={`w-24 h-24 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-3xl font-bold border-4 shadow-md ${
+                    successType === 'create' ? 'border-green-100' : 'border-blue-100'
+                  }`}>
+                    {successData.nombre.charAt(0)}{successData.apellido.charAt(0)}
                   </div>
                 )}
               </div>
@@ -711,16 +804,16 @@ function Usuarios() {
               {/* Nombre completo del usuario */}
               <div className="text-center">
                 <h3 className="text-2xl font-bold text-gray-800">
-                  {createdUser.nombre} {createdUser.apellido}
+                  {successData.nombre} {successData.apellido}
                 </h3>
                 <span className={`inline-block mt-2 px-3 py-1 rounded-full text-sm font-semibold ${
-                  getRolInfo(createdUser.rol).color === 'purple'
+                  getRolInfo(successData.rol).color === 'purple'
                     ? 'bg-purple-100 text-purple-800'
-                    : getRolInfo(createdUser.rol).color === 'green'
+                    : getRolInfo(successData.rol).color === 'green'
                     ? 'bg-green-100 text-green-800'
                     : 'bg-gray-100 text-gray-800'
                 }`}>
-                  {getRolInfo(createdUser.rol).emoji} {getRolInfo(createdUser.rol).label}
+                  {getRolInfo(successData.rol).emoji} {getRolInfo(successData.rol).label}
                 </span>
               </div>
 
@@ -733,7 +826,7 @@ function Usuarios() {
                   <div className="flex-1">
                     <p className="text-xs text-gray-500 font-medium">Email</p>
                     <p className="text-sm text-gray-800 font-semibold break-all">
-                      {createdUser.email}
+                      {successData.email}
                     </p>
                   </div>
                 </div>
@@ -744,66 +837,136 @@ function Usuarios() {
                   <div className="flex-1">
                     <p className="text-xs text-gray-500 font-medium">DNI</p>
                     <p className="text-sm text-gray-800 font-semibold">
-                      {createdUser.dni}
+                      {successData.dni}
                     </p>
                   </div>
                 </div>
 
                 {/* Teléfono (si existe) */}
-                {createdUser.telefono && (
+                {successData.telefono && (
                   <div className="bg-gray-50 rounded-lg p-3 flex items-start">
                     <span className="text-2xl mr-3">📱</span>
                     <div className="flex-1">
                       <p className="text-xs text-gray-500 font-medium">Teléfono</p>
                       <p className="text-sm text-gray-800 font-semibold">
-                        {createdUser.telefono}
+                        {successData.telefono}
                       </p>
                     </div>
                   </div>
                 )}
 
                 {/* Código QR */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3 border-2 border-blue-200">
+                <div className={`rounded-lg p-3 border-2 ${
+                  successType === 'create' 
+                    ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200'
+                    : 'bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-200'
+                }`}>
                   <div className="flex items-start">
                     <span className="text-2xl mr-3">🔐</span>
                     <div className="flex-1">
-                      <p className="text-xs text-blue-600 font-medium">Código QR</p>
+                      <p className={`text-xs font-medium ${
+                        successType === 'create' ? 'text-blue-600' : 'text-indigo-600'
+                      }`}>Código QR</p>
                       <p className="text-sm text-gray-800 font-mono font-semibold break-all">
-                        {createdUser.qrCode}
+                        {successData.qrCode}
                       </p>
                     </div>
                   </div>
-                  <p className="text-xs text-blue-600 mt-2 ml-9">
-                    ✓ Generado automáticamente
+                  <p className={`text-xs mt-2 ml-9 ${
+                    successType === 'create' ? 'text-blue-600' : 'text-indigo-600'
+                  }`}>
+                    {successType === 'create' ? '✓ Generado automáticamente' : '✓ Código QR del usuario'}
                   </p>
                 </div>
 
-                {/* Credenciales de acceso */}
-                <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4">
-                  <div className="flex items-start">
-                    <span className="text-2xl mr-3">⚠️</span>
-                    <div className="flex-1">
-                      <p className="text-xs text-yellow-700 font-bold uppercase">Importante</p>
-                      <p className="text-sm text-gray-700 mt-1">
-                        El usuario ya puede iniciar sesión con:
-                      </p>
-                      <div className="mt-2 space-y-1 text-sm">
-                        <p className="text-gray-800">
-                          <strong>Email:</strong> {createdUser.email}
+                {/* Mostrar cambios realizados (solo en edición) */}
+                {successType === 'edit' && successData.cambiosRealizados && (
+                  <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
+                    <div className="flex items-start">
+                      <span className="text-2xl mr-3">📝</span>
+                      <div className="flex-1">
+                        <p className="text-xs text-blue-700 font-bold uppercase mb-2">Cambios Realizados</p>
+                        <div className="space-y-1">
+                          {successData.cambiosRealizados.nombre && (
+                            <p className="text-sm text-gray-700">✓ Nombre actualizado</p>
+                          )}
+                          {successData.cambiosRealizados.apellido && (
+                            <p className="text-sm text-gray-700">✓ Apellido actualizado</p>
+                          )}
+                          {successData.cambiosRealizados.email && (
+                            <p className="text-sm text-gray-700">✓ Email actualizado</p>
+                          )}
+                          {successData.cambiosRealizados.dni && (
+                            <p className="text-sm text-gray-700">✓ DNI actualizado</p>
+                          )}
+                          {successData.cambiosRealizados.telefono && (
+                            <p className="text-sm text-gray-700">✓ Teléfono actualizado</p>
+                          )}
+                          {successData.cambiosRealizados.rol && (
+                            <p className="text-sm text-gray-700">✓ Rol actualizado</p>
+                          )}
+                          {successData.cambiosRealizados.fotoPerfil && (
+                            <p className="text-sm text-gray-700">✓ Foto de perfil actualizada</p>
+                          )}
+                          {successData.cambiosRealizados.password && (
+                            <p className="text-sm text-gray-700">✓ Contraseña actualizada</p>
+                          )}
+                          {!Object.values(successData.cambiosRealizados).some(v => v) && (
+                            <p className="text-sm text-gray-500 italic">No se realizaron cambios</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Credenciales de acceso (solo para creación) */}
+                {successType === 'create' && (
+                  <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4">
+                    <div className="flex items-start">
+                      <span className="text-2xl mr-3">⚠️</span>
+                      <div className="flex-1">
+                        <p className="text-xs text-yellow-700 font-bold uppercase">Importante</p>
+                        <p className="text-sm text-gray-700 mt-1">
+                          El usuario ya puede iniciar sesión con:
                         </p>
-                        <p className="text-gray-800">
-                          <strong>Contraseña:</strong> La que configuraste
+                        <div className="mt-2 space-y-1 text-sm">
+                          <p className="text-gray-800">
+                            <strong>Email:</strong> {successData.email}
+                          </p>
+                          <p className="text-gray-800">
+                            <strong>Contraseña:</strong> La que configuraste
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Nota informativa (solo para edición) */}
+                {successType === 'edit' && (
+                  <div className="bg-indigo-50 border-2 border-indigo-200 rounded-lg p-4">
+                    <div className="flex items-start">
+                      <span className="text-2xl mr-3">ℹ️</span>
+                      <div className="flex-1">
+                        <p className="text-xs text-indigo-700 font-bold uppercase">Información</p>
+                        <p className="text-sm text-gray-700 mt-1">
+                          Los cambios se han aplicado de inmediato. El usuario verá la información actualizada en su próximo inicio de sesión.
                         </p>
                       </div>
                     </div>
                   </div>
-                </div>
+                )}
               </div>
 
               {/* Botón para cerrar */}
               <button
                 onClick={handleCloseSuccessModal}
-                className="w-full mt-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold rounded-lg transition-all shadow-md hover:shadow-lg"
+                className={`w-full mt-6 py-3 text-white font-bold rounded-lg transition-all shadow-md hover:shadow-lg ${
+                  successType === 'create'
+                    ? 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700'
+                    : 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700'
+                }`}
               >
                 ¡Entendido!
               </button>
@@ -813,57 +976,144 @@ function Usuarios() {
       )}
 
       {/* ======================================================================
-          MODAL: BANEAR/DESBANEAR USUARIO
+          ✨ MODAL MEJORADO: BANEAR/DESBANEAR USUARIO ✨
       ====================================================================== */}
       {showBanModal && userToBan && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <h2 className="text-xl font-bold mb-4 text-gray-900">
-              {userToBan.baneado ? 'Desbanear Usuario' : 'Banear Usuario'}
-            </h2>
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden animate-[fadeIn_0.3s_ease-in-out]">
             
-            <p className="text-gray-600 mb-4">
-              {userToBan.baneado ? '¿Desea desbanear a' : '¿Está seguro de banear a'}{' '}
-              <strong>{userToBan.nombre} {userToBan.apellido}</strong>?
-            </p>
-
-            {!userToBan.baneado && (
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-1 text-gray-700">
-                  Motivo del baneo
-                </label>
-                <textarea
-                  value={motivoBaneo}
-                  onChange={(e) => setMotivoBaneo(e.target.value)}
-                  rows="3"
-                  className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
-                  placeholder="Explique el motivo del baneo..."
-                />
+            {/* Header con gradiente dinámico según acción */}
+            <div className={`p-6 text-center ${
+              userToBan.baneado 
+                ? 'bg-gradient-to-r from-green-500 to-emerald-600' 
+                : 'bg-gradient-to-r from-red-500 to-rose-600'
+            }`}>
+              <div className="w-20 h-20 bg-white rounded-full mx-auto mb-4 flex items-center justify-center shadow-lg">
+                <span className="text-5xl">{userToBan.baneado ? '✅' : '🚫'}</span>
               </div>
-            )}
+              <h2 className="text-2xl font-bold text-white mb-2">
+                {userToBan.baneado ? 'Desbanear Usuario' : 'Banear Usuario'}
+              </h2>
+              <p className={`text-sm ${userToBan.baneado ? 'text-green-50' : 'text-red-50'}`}>
+                {userToBan.baneado 
+                  ? 'El usuario podrá volver a acceder al sistema' 
+                  : 'El usuario no podrá acceder al sistema'}
+              </p>
+            </div>
 
-            <div className="flex gap-3">
-              <button
-                onClick={handleBanConfirm}
-                className={`flex-1 px-4 py-2 text-white rounded ${
-                  userToBan.baneado 
-                    ? 'bg-green-600 hover:bg-green-700' 
-                    : 'bg-red-600 hover:bg-red-700'
-                }`}
-              >
-                {userToBan.baneado ? 'Sí, Desbanear' : 'Sí, Banear'}
-              </button>
+            {/* Contenido del modal */}
+            <div className="p-6 space-y-4">
               
-              <button
-                onClick={() => {
-                  setShowBanModal(false);
-                  setUserToBan(null);
-                  setMotivoBaneo('');
-                }}
-                className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
-              >
-                Cancelar
-              </button>
+              {/* Información del usuario a banear/desbanear */}
+              <div className="bg-gray-50 rounded-lg p-4 flex items-center space-x-4">
+                {userToBan.fotoPerfil ? (
+                  <img
+                    src={userToBan.fotoPerfil}
+                    alt={`${userToBan.nombre} ${userToBan.apellido}`}
+                    className="w-16 h-16 rounded-full object-cover border-2 border-gray-200"
+                  />
+                ) : (
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-xl font-bold">
+                    {userToBan.nombre.charAt(0)}{userToBan.apellido.charAt(0)}
+                  </div>
+                )}
+                <div className="flex-1">
+                  <p className="font-bold text-gray-800 text-lg">
+                    {userToBan.nombre} {userToBan.apellido}
+                  </p>
+                  <p className="text-sm text-gray-500">{userToBan.email}</p>
+                  <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                    getRolInfo(userToBan.rol).color === 'purple'
+                      ? 'bg-purple-100 text-purple-800'
+                      : getRolInfo(userToBan.rol).color === 'green'
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-gray-100 text-gray-800'
+                  }`}>
+                    {getRolInfo(userToBan.rol).emoji} {getRolInfo(userToBan.rol).label}
+                  </span>
+                </div>
+              </div>
+
+              {/* Mensaje de confirmación */}
+              <div className={`rounded-lg p-4 border-2 ${
+                userToBan.baneado 
+                  ? 'bg-green-50 border-green-200' 
+                  : 'bg-red-50 border-red-200'
+              }`}>
+                <p className={`text-sm font-medium ${
+                  userToBan.baneado ? 'text-green-800' : 'text-red-800'
+                }`}>
+                  {userToBan.baneado ? (
+                    <>
+                      <span className="text-lg mr-2">✓</span>
+                      ¿Estás seguro de que deseas <strong>desbanear</strong> a este usuario? 
+                      Podrá volver a acceder al sistema inmediatamente.
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-lg mr-2">⚠️</span>
+                      ¿Estás seguro de que deseas <strong>banear</strong> a este usuario? 
+                      No podrá acceder al sistema hasta que sea desbaneado.
+                    </>
+                  )}
+                </p>
+              </div>
+
+              {/* Campo de motivo (solo para baneo) */}
+              {!userToBan.baneado && (
+                <div>
+                  <label className="block text-sm font-semibold mb-2 text-gray-700 flex items-center">
+                    <span className="mr-2">📝</span> Motivo del baneo
+                  </label>
+                  <textarea
+                    value={motivoBaneo}
+                    onChange={(e) => setMotivoBaneo(e.target.value)}
+                    rows="3"
+                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all resize-none"
+                    placeholder="Explica brevemente el motivo del baneo..."
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Este motivo quedará registrado en el sistema
+                  </p>
+                </div>
+              )}
+
+              {/* Mostrar motivo anterior si existe */}
+              {userToBan.baneado && userToBan.motivoBaneo && (
+                <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                  <p className="text-xs text-gray-500 font-medium mb-1 flex items-center">
+                    <span className="mr-1">📋</span> Motivo del baneo anterior:
+                  </p>
+                  <p className="text-sm text-gray-700 italic">
+                    "{userToBan.motivoBaneo}"
+                  </p>
+                </div>
+              )}
+
+              {/* Botones de acción */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={handleBanConfirm}
+                  className={`flex-1 px-6 py-3 text-white font-bold rounded-lg transition-all shadow-md hover:shadow-lg ${
+                    userToBan.baneado
+                      ? 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700'
+                      : 'bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700'
+                  }`}
+                >
+                  {userToBan.baneado ? '✅ Sí, Desbanear' : '🚫 Sí, Banear'}
+                </button>
+                
+                <button
+                  onClick={() => {
+                    setShowBanModal(false);
+                    setUserToBan(null);
+                    setMotivoBaneo('');
+                  }}
+                  className="flex-1 px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold rounded-lg transition-all"
+                >
+                  Cancelar
+                </button>
+              </div>
             </div>
           </div>
         </div>

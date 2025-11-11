@@ -98,33 +98,18 @@ pruebaSaludSchema.virtual('estadoLegible').get(function() {
   }
 });
 
-// MIDDLEWARE: Calcular fecha de vencimiento antes de guardar
-pruebaSaludSchema.pre('save', function(next) {
-  // Si es una prueba nueva o se modificó la fechaPrueba o diasValidez
-  if (this.isNew || this.isModified('fechaPrueba') || this.isModified('diasValidez')) {
-    // La prueba vence según los días de validez configurados
-    const vencimiento = new Date(this.fechaPrueba);
-    vencimiento.setDate(vencimiento.getDate() + this.diasValidez);
-    this.fechaVencimiento = vencimiento;
-  }
-  next();
-});
+// 🔧 REMOVÍ LOS MIDDLEWARES PRE-SAVE QUE CAUSABAN PROBLEMAS
+// Ahora calculamos todo explícitamente en los métodos
 
-// MIDDLEWARE: Actualizar estado de vigencia antes de guardar
-pruebaSaludSchema.pre('save', function(next) {
-  const hoy = new Date();
-  // Si ya venció, marcar como no vigente
-  if (this.fechaVencimiento < hoy) {
-    this.vigente = false;
-  }
-  next();
-});
-
-// MÉTODO: Renovar prueba de salud
+// 🔧 MÉTODO RENOVAR COMPLETAMENTE REESCRITO
 pruebaSaludSchema.methods.renovar = async function(enfermeroId, diasValidez = 15, notas = null) {
-  this.fechaPrueba = new Date();
+  const fechaPrueba = new Date();
+  const fechaVencimiento = new Date(fechaPrueba);
+  fechaVencimiento.setDate(fechaVencimiento.getDate() + diasValidez);
+  
+  this.fechaPrueba = fechaPrueba;
   this.diasValidez = diasValidez;
-  // El middleware pre-save calculará automáticamente la nueva fechaVencimiento
+  this.fechaVencimiento = fechaVencimiento; // 🔧 CALCULADO EXPLÍCITAMENTE
   this.vigente = true;
   this.alertaEnviada = false;
   this.fechaAlerta = null;
@@ -146,30 +131,46 @@ pruebaSaludSchema.methods.marcarAlertaEnviada = async function() {
   return this;
 };
 
-// MÉTODO ESTÁTICO: Crear o actualizar prueba de salud
+// 🔧 MÉTODO ESTÁTICO COMPLETAMENTE REESCRITO
 pruebaSaludSchema.statics.crearOActualizar = async function(usuarioId, enfermeroId, diasValidez = 15, notas = null) {
   // Buscar si ya existe una prueba para este usuario
   let prueba = await this.findOne({ usuario: usuarioId });
   
   if (prueba) {
     // Si existe, renovarla
+    console.log('📝 Renovando prueba existente para usuario:', usuarioId);
     return await prueba.renovar(enfermeroId, diasValidez, notas);
   } else {
     // Si no existe, crear una nueva
+    console.log('✨ Creando nueva prueba para usuario:', usuarioId);
+    
+    const fechaPrueba = new Date();
+    const fechaVencimiento = new Date(fechaPrueba);
+    fechaVencimiento.setDate(fechaVencimiento.getDate() + diasValidez);
+    
+    console.log('📅 Fecha prueba:', fechaPrueba);
+    console.log('📅 Fecha vencimiento:', fechaVencimiento);
+    console.log('📅 Días validez:', diasValidez);
+    
     prueba = await this.create({
       usuario: usuarioId,
-      fechaPrueba: new Date(),
+      fechaPrueba: fechaPrueba,
+      fechaVencimiento: fechaVencimiento,
       diasValidez: diasValidez,
       cargadoPor: enfermeroId,
-      notas,
+      notas: notas || undefined,
       vigente: true
     });
+    
+    console.log('✅ Prueba creada:', prueba._id);
     
     // Actualizar la referencia en el usuario
     const Usuario = mongoose.model('Usuario');
     await Usuario.findByIdAndUpdate(usuarioId, {
       pruebaSalud: prueba._id
     });
+    
+    console.log('✅ Usuario actualizado con referencia a prueba');
     
     return prueba;
   }
@@ -201,8 +202,8 @@ pruebaSaludSchema.statics.obtenerVencidas = async function() {
   }).populate('usuario', 'nombre apellido email');
 };
 
-// MÉTODO ESTÁTICO: Actualizar todas las pruebas vencidas
-pruebaSaludSchema.statics.actualizarVencidas = async function() {
+// MÉTODO ESTÁTICO: Marcar pruebas vencidas
+pruebaSaludSchema.statics.marcarVencidas = async function() {
   const hoy = new Date();
   
   const resultado = await this.updateMany(
@@ -217,42 +218,6 @@ pruebaSaludSchema.statics.actualizarVencidas = async function() {
   
   return resultado;
 };
-
-// MÉTODO ESTÁTICO: Obtener estadísticas
-pruebaSaludSchema.statics.obtenerEstadisticas = async function() {
-  const total = await this.countDocuments();
-  const vigentes = await this.countDocuments({ vigente: true });
-  const vencidas = await this.countDocuments({ vigente: false });
-  
-  const hoy = new Date();
-  const proximasVencer = new Date();
-  proximasVencer.setDate(proximasVencer.getDate() + 5);
-  
-  const alertas = await this.countDocuments({
-    vigente: true,
-    fechaVencimiento: {
-      $gte: hoy,
-      $lte: proximasVencer
-    }
-  });
-  
-  return {
-    total,
-    vigentes,
-    vencidas,
-    alertas,
-    porcentajeVigente: total > 0 ? ((vigentes / total) * 100).toFixed(2) : 0
-  };
-};
-
-// ÍNDICES
-pruebaSaludSchema.index({ fechaVencimiento: 1 });
-pruebaSaludSchema.index({ vigente: 1 });
-pruebaSaludSchema.index({ alertaEnviada: 1 });
-
-// Incluir virtuals en JSON
-pruebaSaludSchema.set('toJSON', { virtuals: true });
-pruebaSaludSchema.set('toObject', { virtuals: true });
 
 const PruebaSalud = mongoose.model('PruebaSalud', pruebaSaludSchema);
 

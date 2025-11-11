@@ -18,7 +18,6 @@ function Login() {
       ...formData,
       [e.target.name]: e.target.value
     });
-    // Limpiar error al escribir
     if (error) setError('');
   };
 
@@ -27,7 +26,6 @@ function Login() {
     setError('');
     setLoading(true);
 
-    // Validaciones básicas
     if (!formData.email || !formData.password) {
       setError('Por favor complete todos los campos');
       setLoading(false);
@@ -38,17 +36,10 @@ function Login() {
       const result = await login(formData.email, formData.password);
 
       if (result.success) {
-        // Usar el rol directamente de la respuesta del login
         const userRole = result.data.usuario.rol;
-        
-        // Redirigir según el rol
-        if (userRole === 'admin') {
-          navigate('/admin/dashboard');
-        } else if (userRole === 'enfermero') {
-          navigate('/enfermero/dashboard');
-        } else {
-          navigate('/usuario/dashboard');
-        }
+        if (userRole === 'admin') navigate('/admin/dashboard');
+        else if (userRole === 'enfermero') navigate('/enfermero/dashboard');
+        else navigate('/usuario/dashboard');
       } else {
         setError(result.error);
       }
@@ -60,8 +51,18 @@ function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-2xl w-full max-w-md p-8">
+    <div
+      className="min-h-screen flex items-center justify-center p-4 bg-cover bg-center bg-no-repeat relative"
+      style={{
+        backgroundImage: "url('/images/pileta-bg.jpg')",
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }}
+    >
+      {/* Overlay sutil para contraste */}
+      <div className="absolute inset-0 bg-black/40"></div>
+
+      <div className="relative bg-white/90 backdrop-blur-md rounded-xl shadow-2xl w-full max-w-md p-8">
         {/* Logo/Header */}
         <div className="text-center mb-8">
           <div className="text-5xl mb-4">🏊</div>
@@ -71,14 +72,12 @@ function Login() {
 
         {/* Formulario */}
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Error message */}
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
               {error}
             </div>
           )}
 
-          {/* Email */}
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
               Email
@@ -95,7 +94,6 @@ function Login() {
             />
           </div>
 
-          {/* Password */}
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
               Contraseña
@@ -112,7 +110,6 @@ function Login() {
             />
           </div>
 
-          {/* Submit button */}
           <button
             type="submit"
             disabled={loading}
@@ -132,7 +129,6 @@ function Login() {
           </button>
         </form>
 
-        {/* Registro */}
         <div className="mt-6 text-center">
           <p className="text-gray-600">
             ¿No tienes cuenta?{' '}
@@ -142,7 +138,6 @@ function Login() {
           </p>
         </div>
 
-        {/* Credenciales de prueba (solo para desarrollo) */}
         <div className="mt-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
           <p className="text-xs text-gray-500 text-center mb-2">Credenciales de prueba:</p>
           <div className="text-xs text-gray-600 space-y-1">

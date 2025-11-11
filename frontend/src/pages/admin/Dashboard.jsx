@@ -207,11 +207,11 @@ function Dashboard() {
             </div>
           </div>
 
-          {/* Card Pruebas Salud */}
+          {/* Card Pruebas Vigentes */}
           <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Pruebas Vigentes</p>
+                <p className="text-sm text-gray-600">Aptos Vigentes</p>
                 {loadingStats ? (
                   <div className="h-8 w-16 bg-gray-200 animate-pulse rounded mt-1"></div>
                 ) : (
@@ -268,115 +268,198 @@ function Dashboard() {
         </div>
       </main>
 
-      {/* Modal Editar Perfil */}
+      {/* ========================================================================
+          ✨ MODAL EDITAR PERFIL MEJORADO ✨
+      ======================================================================== */}
       {showEditModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <h2 className="text-2xl font-bold mb-4 text-gray-900">
-              Editar Mi Perfil
-            </h2>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl my-8 animate-[fadeIn_0.3s_ease-in-out]">
+            
+            {/* Header con gradiente púrpura */}
+            <div className="bg-gradient-to-r from-purple-500 to-indigo-600 p-6 rounded-t-2xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg">
+                    <span className="text-3xl">✏️</span>
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-white">
+                      Editar Mi Perfil
+                    </h2>
+                    <p className="text-purple-100 text-sm">
+                      Actualiza tu información personal
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setPreviewImage(null);
+                  }}
+                  className="text-white hover:bg-white hover:bg-opacity-20 rounded-full w-8 h-8 flex items-center justify-center transition-all"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+            
+            {/* Contenido del formulario */}
+            <form onSubmit={handleSaveProfile} className="p-6 space-y-5">
+              
+              {/* Banner de privilegios de admin */}
+              <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border-2 border-purple-200 rounded-xl p-4">
+                <div className="flex items-start space-x-3">
+                  <div className="flex-shrink-0">
+                    <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center shadow-md">
+                      <span className="text-xl">👑</span>
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs text-purple-700 font-bold uppercase tracking-wide mb-1">
+                      Privilegios de Administrador
+                    </p>
+                    <p className="text-sm text-gray-700">
+                      Puedes editar todos tus datos personales incluida tu foto de perfil
+                    </p>
+                  </div>
+                </div>
+              </div>
 
-            <form onSubmit={handleSaveProfile} className="space-y-4">
-              {/* Foto de perfil */}
-              <div className="flex flex-col items-center mb-4">
-                <div className="mb-2">
+              {/* Foto de perfil mejorada */}
+              <div className="flex flex-col items-center pb-4 border-b border-gray-200">
+                <div className="relative mb-3">
                   <img
                     src={previewImage || `https://ui-avatars.com/api/?name=${user?.nombre}+${user?.apellido}&background=8B5CF6&color=fff&size=128`}
                     alt="Preview"
-                    className="h-24 w-24 rounded-full object-cover border-4 border-purple-200"
+                    className="h-28 w-28 rounded-full object-cover border-4 border-purple-100 shadow-lg"
                   />
+                  <div className="absolute bottom-0 right-0 bg-purple-500 rounded-full p-2 shadow-lg">
+                    <span className="text-white text-xl">📷</span>
+                  </div>
                 </div>
-                <label className="cursor-pointer bg-purple-100 hover:bg-purple-200 text-purple-700 px-4 py-2 rounded-lg text-sm">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageChange}
-                    className="hidden"
-                  />
-                  {previewImage ? 'Cambiar foto' : 'Subir foto'}
-                </label>
-                {previewImage && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFormData({ ...formData, fotoPerfil: null });
-                      setPreviewImage(null);
-                    }}
-                    className="mt-2 text-red-600 text-sm hover:text-red-800"
-                  >
-                    Eliminar foto
-                  </button>
-                )}
+                
+                <div className="flex gap-2">
+                  <label className="cursor-pointer bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-md">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                      className="hidden"
+                    />
+                    {previewImage ? '🔄 Cambiar foto' : '📁 Subir foto'}
+                  </label>
+                  
+                  {previewImage && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData({ ...formData, fotoPerfil: null });
+                        setPreviewImage(null);
+                      }}
+                      className="px-4 py-2 bg-red-100 text-red-600 rounded-lg text-sm font-medium hover:bg-red-200 transition-all"
+                    >
+                      🗑️ Eliminar
+                    </button>
+                  )}
+                </div>
+                <p className="text-xs text-gray-500 mt-2">Máximo 2MB - JPG, PNG o GIF</p>
               </div>
 
-              <div className="bg-purple-50 p-3 rounded-lg mb-4">
-                <p className="text-sm text-purple-800">
-                  <strong>🔑 Privilegios de Administrador:</strong> Puedes editar todos tus datos personales
-                </p>
-              </div>
-
+              {/* Campos del formulario con iconos */}
               <div className="grid grid-cols-2 gap-4">
+                
+                {/* Nombre */}
                 <div>
-                  <label className="block text-sm font-medium mb-1 text-gray-700">Nombre *</label>
+                  <label className="block text-sm font-semibold mb-2 text-gray-700 flex items-center">
+                    <span className="mr-2">👤</span> Nombre *
+                  </label>
                   <input
                     type="text"
                     required
                     value={formData.nombre}
                     onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-                    className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-purple-500 outline-none"
+                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all"
+                    placeholder="Ingresa tu nombre"
                   />
                 </div>
+
+                {/* Apellido */}
                 <div>
-                  <label className="block text-sm font-medium mb-1 text-gray-700">Apellido *</label>
+                  <label className="block text-sm font-semibold mb-2 text-gray-700 flex items-center">
+                    <span className="mr-2">👤</span> Apellido *
+                  </label>
                   <input
                     type="text"
                     required
                     value={formData.apellido}
                     onChange={(e) => setFormData({ ...formData, apellido: e.target.value })}
-                    className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-purple-500 outline-none"
+                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all"
+                    placeholder="Ingresa tu apellido"
                   />
                 </div>
               </div>
 
+              {/* Email */}
               <div>
-                <label className="block text-sm font-medium mb-1 text-gray-700">Email *</label>
+                <label className="block text-sm font-semibold mb-2 text-gray-700 flex items-center">
+                  <span className="mr-2">📧</span> Email *
+                </label>
                 <input
                   type="email"
                   required
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-purple-500 outline-none"
+                  className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all"
+                  placeholder="tu@email.com"
                 />
               </div>
 
+              {/* Teléfono */}
               <div>
-                <label className="block text-sm font-medium mb-1 text-gray-700">Teléfono</label>
+                <label className="block text-sm font-semibold mb-2 text-gray-700 flex items-center">
+                  <span className="mr-2">📱</span> Teléfono
+                </label>
                 <input
                   type="text"
                   value={formData.telefono}
                   onChange={(e) => setFormData({ ...formData, telefono: e.target.value })}
-                  className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-purple-500 outline-none"
-                  placeholder="Ingrese su teléfono"
+                  className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all"
+                  placeholder="1156789012"
                 />
               </div>
 
-              <div className="flex gap-3 mt-6">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="flex-1 px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:bg-purple-300"
-                >
-                  {loading ? 'Guardando...' : 'Guardar Cambios'}
-                </button>
+              {/* Botones de acción */}
+              <div className="flex gap-3 pt-4">
                 <button
                   type="button"
                   onClick={() => {
                     setShowEditModal(false);
                     setPreviewImage(null);
                   }}
-                  className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+                  disabled={loading}
+                  className="flex-1 px-4 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition-colors font-bold disabled:opacity-50"
                 >
                   Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 px-4 py-3 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white rounded-lg transition-colors font-bold disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+                >
+                  {loading ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      <span>Guardando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>💾</span>
+                      <span>Guardar Cambios</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>
@@ -388,4 +471,3 @@ function Dashboard() {
 }
 
 export default Dashboard;
-
