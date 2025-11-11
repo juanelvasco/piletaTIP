@@ -148,6 +148,7 @@ function Login() {
           <div className="text-xs text-gray-600 space-y-1">
             <p><strong>Admin:</strong> admin@pileta.com / admin123</p>
             <p><strong>Usuario:</strong> juanjuan@ejemplo.com / juanjuan</p>
+            <p><strong>Enfermero/a:</strong> nursejoy@gmail.com / nursejoy</p>
           </div>
         </div>
       </div>

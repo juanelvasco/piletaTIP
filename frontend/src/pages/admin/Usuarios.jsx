@@ -1,3 +1,10 @@
+//============================================================================
+// PÁGINA: Panel de Usuarios del Administrador
+// UBICACIÓN: frontend/src/pages/admin/Usuarios.jsx
+// DESCRIPCIÓN: Gestión completa de usuarios (crear, editar, banear, filtrar)
+//              CON MODAL DE ÉXITO MEJORADO
+// ============================================================================
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -7,19 +14,23 @@ function Usuarios() {
   const navigate = useNavigate();
   const { logout } = useAuth();
 
-  // Estados
+  // ============================================================================
+  // ESTADOS - Datos y UI
+  // ============================================================================
+  
+  // Lista de usuarios y estado de carga
   const [usuarios, setUsuarios] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
-  // Paginación y filtros
+  // Estados para paginación y filtros
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [search, setSearch] = useState('');
   const [filtroRol, setFiltroRol] = useState('');
   const [filtroActivo, setFiltroActivo] = useState('');
 
-  // Modal crear/editar
+  // Estados para modal de crear/editar usuario
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [formData, setFormData] = useState({
@@ -34,12 +45,20 @@ function Usuarios() {
   });
   const [previewImage, setPreviewImage] = useState(null);
 
-  // Modal de baneo
+  // Estados para modal de baneo
   const [showBanModal, setShowBanModal] = useState(false);
   const [userToBan, setUserToBan] = useState(null);
   const [motivoBaneo, setMotivoBaneo] = useState('');
 
-  // Cargar usuarios
+  // ============================================================================
+  // NUEVO: Estados para modal de éxito con resumen del usuario
+  // ============================================================================
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [createdUser, setCreatedUser] = useState(null); // Usuario recién creado
+
+  // ============================================================================
+  // FUNCIÓN: Cargar lista de usuarios del backend
+  // ============================================================================
   const cargarUsuarios = async () => {
     try {
       setLoading(true);
@@ -50,7 +69,6 @@ function Usuarios() {
         rol: filtroRol
       };
 
-      // Manejar filtro de estado especial para baneados
       if (filtroActivo === 'baneado') {
         params.baneado = 'true';
       } else if (filtroActivo) {
@@ -69,13 +87,17 @@ function Usuarios() {
     }
   };
 
-  // useEffect para cargar usuarios cuando cambian los filtros o la página
+  // ============================================================================
+  // EFFECT: Cargar usuarios cuando cambian filtros o página
+  // ============================================================================
   useEffect(() => {
     cargarUsuarios();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, filtroRol, filtroActivo]);
 
-  // Buscar con delay - efecto separado para evitar loop infinito
+  // ============================================================================
+  // EFFECT: Búsqueda con delay (debounce) - 500ms
+  // ============================================================================
   useEffect(() => {
     const timer = setTimeout(() => {
       if (page === 1) {
@@ -88,34 +110,29 @@ function Usuarios() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
-  // Manejar selección de imagen
+  // ============================================================================
+  // FUNCIÓN: Manejar selección de imagen (convierte a base64)
+  // ============================================================================
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Validar tamaño (max 2MB)
       if (file.size > 2 * 1024 * 1024) {
         alert('La imagen es muy grande. Máximo 2MB');
         return;
       }
 
-      // Validar tipo
-      if (!file.type.startsWith('image/')) {
-        alert('El archivo debe ser una imagen');
-        return;
-      }
-
-      // Convertir a base64
       const reader = new FileReader();
       reader.onloadend = () => {
-        const base64String = reader.result;
-        setFormData({ ...formData, fotoPerfil: base64String });
-        setPreviewImage(base64String);
+        setFormData({...formData, fotoPerfil: reader.result});
+        setPreviewImage(reader.result);
       };
       reader.readAsDataURL(file);
     }
   };
 
-  // Abrir modal para crear
+  // ============================================================================
+  // FUNCIÓN: Abrir modal para crear nuevo usuario
+  // ============================================================================
   const handleCrear = () => {
     setEditingUser(null);
     setFormData({
@@ -132,7 +149,9 @@ function Usuarios() {
     setShowModal(true);
   };
 
-  // Abrir modal para editar
+  // ============================================================================
+  // FUNCIÓN: Abrir modal para editar usuario existente
+  // ============================================================================
   const handleEditar = (usuario) => {
     setEditingUser(usuario);
     setFormData({
@@ -143,99 +162,163 @@ function Usuarios() {
       dni: usuario.dni,
       telefono: usuario.telefono || '',
       rol: usuario.rol,
-      fotoPerfil: usuario.fotoPerfil || null
+      fotoPerfil: usuario.fotoPerfil
     });
-    setPreviewImage(usuario.fotoPerfil || null);
+    setPreviewImage(usuario.fotoPerfil);
     setShowModal(true);
   };
 
-  // Guardar (crear o editar)
+  // ============================================================================
+  // FUNCIÓN: Guardar usuario (crear o actualizar)
+  // NUEVO: Muestra modal de éxito con resumen si es creación
+  // ============================================================================
   const handleGuardar = async (e) => {
     e.preventDefault();
+    
     try {
       if (editingUser) {
-        // Editar - no enviar password si está vacío
-        const dataToSend = { ...formData };
-        if (!dataToSend.password || dataToSend.password.trim() === '') {
+        // MODO EDICIÓN: Actualizar usuario existente
+        const dataToSend = {...formData};
+        if (!dataToSend.password) {
           delete dataToSend.password;
         }
-        
         await userService.updateUser(editingUser._id, dataToSend);
+        
+        // Cerrar modal de edición
+        setShowModal(false);
+        setPreviewImage(null);
+        cargarUsuarios();
+        
+        // Mostrar alerta simple para edición
+        alert('✅ Usuario actualizado exitosamente');
+        
       } else {
-        // Crear
-        await userService.createUser(formData);
+        // MODO CREACIÓN: Crear nuevo usuario
+        const response = await userService.createUser(formData);
+        
+        // Guardar usuario creado para mostrar en modal de éxito
+        setCreatedUser({
+          ...formData,
+          qrCode: response.usuario?.qrCode || 'Generado automáticamente',
+          id: response.usuario?._id
+        });
+        
+        // Cerrar modal de creación
+        setShowModal(false);
+        setPreviewImage(null);
+        
+        // Mostrar modal de éxito con resumen
+        setShowSuccessModal(true);
+        
+        // Recargar lista de usuarios
+        cargarUsuarios();
       }
-      setShowModal(false);
-      setPreviewImage(null);
-      cargarUsuarios();
     } catch (err) {
       alert(err.response?.data?.message || 'Error al guardar usuario');
     }
   };
 
-  // Abrir modal de baneo
-  const handleBanear = (usuario) => {
+  // ============================================================================
+  // FUNCIÓN: Cerrar modal de éxito
+  // ============================================================================
+  const handleCloseSuccessModal = () => {
+    setShowSuccessModal(false);
+    setCreatedUser(null);
+  };
+
+  // ============================================================================
+  // FUNCIÓN: Abrir modal de baneo
+  // ============================================================================
+  const handleBanModalOpen = (usuario) => {
     setUserToBan(usuario);
-    setMotivoBaneo('');
+    setMotivoBaneo(usuario.motivoBaneo || '');
     setShowBanModal(true);
   };
 
-  // Confirmar baneo
-  const confirmarBaneo = async () => {
-    if (!motivoBaneo.trim()) {
-      alert('Por favor ingrese un motivo del baneo');
-      return;
-    }
-
+  // ============================================================================
+  // FUNCIÓN: Confirmar baneo/desbaneo
+  // ============================================================================
+  const handleBanConfirm = async () => {
     try {
-      await userService.toggleBanUser(userToBan._id, true, motivoBaneo);
+      await userService.toggleBanUser(userToBan._id, {
+        motivo: motivoBaneo
+      });
+      
+      alert(userToBan.baneado ? '✅ Usuario desbaneado exitosamente' : '✅ Usuario baneado exitosamente');
       setShowBanModal(false);
       setUserToBan(null);
       setMotivoBaneo('');
       cargarUsuarios();
     } catch (err) {
-      alert('Error al banear usuario');
+      alert(err.response?.data?.message || 'Error al procesar baneo');
     }
   };
 
-  // Desbanear usuario
-  const handleDesbanear = async (usuario) => {
-    try {
-      await userService.toggleBanUser(usuario._id, false);
-      cargarUsuarios();
-    } catch (err) {
-      alert('Error al desbanear usuario');
+  // ============================================================================
+  // FUNCIÓN: Obtener emoji e información según el rol
+  // ============================================================================
+  const getRolInfo = (rol) => {
+    switch(rol) {
+      case 'admin':
+        return { emoji: '👑', label: 'Administrador', color: 'purple' };
+      case 'enfermero':
+        return { emoji: '🏥', label: 'Enfermero', color: 'green' };
+      default:
+        return { emoji: '👤', label: 'Usuario', color: 'gray' };
     }
   };
 
+  // ============================================================================
+  // RENDER: Componente principal
+  // ============================================================================
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <div>
+      {/* ========================================================================
+          HEADER
+      ======================================================================== */}
+      <nav className="bg-white shadow-md">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() => navigate('/admin/dashboard')}
+                className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center hover:bg-blue-700"
+              >
+                <span className="text-white text-xl">←</span>
+              </button>
+              <div>
+                <h1 className="text-xl font-bold text-gray-800">Gestión de Usuarios</h1>
+                <p className="text-xs text-gray-500">Panel de Administración</p>
+              </div>
+            </div>
+            
             <button
-              onClick={() => navigate('/admin/dashboard')}
-              className="text-blue-600 hover:text-blue-800 mb-2"
+              onClick={logout}
+              className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm"
             >
-              ← Volver al Dashboard
+              Salir
             </button>
-            <h1 className="text-2xl font-bold text-gray-900">Gestión de Usuarios</h1>
           </div>
-          <button
-            onClick={logout}
-            className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-          >
-            Cerrar Sesión
-          </button>
         </div>
-      </header>
+      </nav>
 
-      <main className="max-w-7xl mx-auto px-4 py-8">
-        {/* Barra de acciones */}
-        <div className="bg-white rounded-lg shadow p-4 mb-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            {/* Búsqueda */}
+      {/* ========================================================================
+          MAIN CONTENT
+      ======================================================================== */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            {error}
+          </div>
+        )}
+
+        {/* ====================================================================
+            CONTROLES: Búsqueda, filtros y botón crear
+        ==================================================================== */}
+        <div className="mb-6 bg-white rounded-lg shadow p-4">
+          <div className="flex flex-wrap gap-3">
+            
             <input
               type="text"
               placeholder="Buscar por nombre, email o DNI..."
@@ -244,7 +327,7 @@ function Usuarios() {
               className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
             />
 
-            {/* Filtros */}
+            {/* Filtro por rol - INCLUYE ENFERMERO */}
             <select
               value={filtroRol}
               onChange={(e) => setFiltroRol(e.target.value)}
@@ -252,6 +335,7 @@ function Usuarios() {
             >
               <option value="">Todos los roles</option>
               <option value="usuario">Usuario</option>
+              <option value="enfermero">Enfermero</option>
               <option value="admin">Admin</option>
             </select>
 
@@ -266,7 +350,6 @@ function Usuarios() {
               <option value="baneado">Baneados</option>
             </select>
 
-            {/* Botón crear */}
             <button
               onClick={handleCrear}
               className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 whitespace-nowrap"
@@ -276,139 +359,166 @@ function Usuarios() {
           </div>
         </div>
 
-        {/* Tabla de usuarios */}
+        {/* ====================================================================
+            TABLA DE USUARIOS
+        ==================================================================== */}
         {loading ? (
-          <div className="bg-white rounded-lg shadow p-8 text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
             <p className="mt-4 text-gray-600">Cargando usuarios...</p>
-          </div>
-        ) : error ? (
-          <div className="bg-white rounded-lg shadow p-8 text-center">
-            <p className="text-red-600">{error}</p>
-            <button 
-              onClick={cargarUsuarios}
-              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-            >
-              Reintentar
-            </button>
-          </div>
-        ) : usuarios.length === 0 ? (
-          <div className="bg-white rounded-lg shadow p-8 text-center">
-            <p className="text-gray-600">No se encontraron usuarios</p>
           </div>
         ) : (
           <>
             <div className="bg-white rounded-lg shadow overflow-hidden">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Usuario</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">DNI</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rol</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {usuarios.map((usuario) => (
-                    <tr key={usuario._id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <img
-                            src={usuario.fotoPerfil || 'https://ui-avatars.com/api/?name=' + usuario.nombre + '+' + usuario.apellido + '&background=3B82F6&color=fff'}
-                            alt={usuario.nombre}
-                            className="h-10 w-10 rounded-full object-cover mr-3"
-                          />
-                          <div className="font-medium text-gray-900">
-                            {usuario.nombre} {usuario.apellido}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        {usuario.email}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        {usuario.dni}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 text-xs rounded-full ${
-                          usuario.rol === 'admin' 
-                            ? 'bg-purple-100 text-purple-800' 
-                            : 'bg-blue-100 text-blue-800'
-                        }`}>
-                          {usuario.rol}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {usuario.baneado ? (
-                          <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">
-                            Baneado
-                          </span>
-                        ) : usuario.activo ? (
-                          <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
-                            Activo
-                          </span>
-                        ) : (
-                          <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">
-                            Inactivo
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <button
-                          onClick={() => handleEditar(usuario)}
-                          className="text-blue-600 hover:text-blue-900 mr-3"
-                        >
-                          Editar
-                        </button>
-                        {usuario.baneado ? (
-                          <button
-                            onClick={() => handleDesbanear(usuario)}
-                            className="text-green-600 hover:text-green-900"
-                          >
-                            Desbanear
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => handleBanear(usuario)}
-                            className="text-red-600 hover:text-red-900"
-                          >
-                            Banear
-                          </button>
-                        )}
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Usuario</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">DNI</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rol</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Acciones</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {usuarios.length === 0 ? (
+                      <tr>
+                        <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
+                          No se encontraron usuarios
+                        </td>
+                      </tr>
+                    ) : (
+                      usuarios.map((usuario) => {
+                        const rolInfo = getRolInfo(usuario.rol);
+                        return (
+                          <tr key={usuario._id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center">
+                                <div className="flex-shrink-0 h-10 w-10">
+                                  {usuario.fotoPerfil ? (
+                                    <img
+                                      className="h-10 w-10 rounded-full object-cover"
+                                      src={usuario.fotoPerfil}
+                                      alt={`${usuario.nombre} ${usuario.apellido}`}
+                                    />
+                                  ) : (
+                                    <div className="h-10 w-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold">
+                                      {usuario.nombre.charAt(0)}{usuario.apellido.charAt(0)}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="ml-4">
+                                  <div className="text-sm font-medium text-gray-900">
+                                    {usuario.nombre} {usuario.apellido}
+                                  </div>
+                                  <div className="text-xs text-gray-500">
+                                    {usuario.telefono || 'Sin teléfono'}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                            
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {usuario.email}
+                            </td>
+                            
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {usuario.dni}
+                            </td>
+                            
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                rolInfo.color === 'purple' 
+                                  ? 'bg-purple-100 text-purple-800' 
+                                  : rolInfo.color === 'green'
+                                  ? 'bg-green-100 text-green-800'
+                                  : 'bg-gray-100 text-gray-800'
+                              }`}>
+                                {rolInfo.emoji} {rolInfo.label}
+                              </span>
+                            </td>
+                            
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              {usuario.baneado ? (
+                                <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                                  🚫 Baneado
+                                </span>
+                              ) : usuario.activo ? (
+                                <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                  ✓ Activo
+                                </span>
+                              ) : (
+                                <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                                  ○ Inactivo
+                                </span>
+                              )}
+                            </td>
+                            
+                            <td className="px-6 py-4 whitespace-nowrap text-center text-sm">
+                              <div className="flex justify-center gap-2">
+                                <button
+                                  onClick={() => handleEditar(usuario)}
+                                  className="text-blue-600 hover:text-blue-900 font-medium"
+                                  title="Editar usuario"
+                                >
+                                  ✏️ Editar
+                                </button>
+                                
+                                <button
+                                  onClick={() => handleBanModalOpen(usuario)}
+                                  className={`${
+                                    usuario.baneado 
+                                      ? 'text-green-600 hover:text-green-900' 
+                                      : 'text-red-600 hover:text-red-900'
+                                  } font-medium`}
+                                  title={usuario.baneado ? 'Desbanear usuario' : 'Banear usuario'}
+                                >
+                                  {usuario.baneado ? '✓ Desbanear' : '🚫 Banear'}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
-            {/* Paginación */}
-            <div className="mt-4 flex justify-center gap-2">
-              <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="px-4 py-2 border rounded hover:bg-gray-50 disabled:opacity-50"
-              >
-                Anterior
-              </button>
-              <span className="px-4 py-2">
-                Página {page} de {totalPages}
-              </span>
-              <button
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-                className="px-4 py-2 border rounded hover:bg-gray-50 disabled:opacity-50"
-              >
-                Siguiente
-              </button>
+            {/* PAGINACIÓN */}
+            <div className="mt-4 flex items-center justify-between">
+              <p className="text-sm text-gray-700">
+                Página {page} de {totalPages} ({usuarios.length} usuarios)
+              </p>
+              
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="px-4 py-2 border rounded hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Anterior
+                </button>
+                <button
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  className="px-4 py-2 border rounded hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Siguiente
+                </button>
+              </div>
             </div>
           </>
         )}
       </main>
 
-      {/* Modal Crear/Editar */}
+      {/* ======================================================================
+          MODAL: CREAR/EDITAR USUARIO
+      ====================================================================== */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white rounded-lg max-w-2xl w-full p-6 my-8">
@@ -417,6 +527,7 @@ function Usuarios() {
             </h2>
             
             <form onSubmit={handleGuardar} className="space-y-4">
+              
               {/* Foto de perfil */}
               <div className="flex flex-col items-center mb-4">
                 <div className="mb-2">
@@ -519,6 +630,8 @@ function Usuarios() {
                     placeholder={editingUser ? 'Dejar vacío para no cambiar' : ''}
                   />
                 </div>
+                
+                {/* Campo: Rol - INCLUYE ENFERMERO */}
                 <div>
                   <label className="block text-sm font-medium mb-1 text-gray-700">Rol *</label>
                   <select
@@ -527,6 +640,7 @@ function Usuarios() {
                     className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
                   >
                     <option value="usuario">Usuario</option>
+                    <option value="enfermero">Enfermero</option>
                     <option value="admin">Admin</option>
                   </select>
                 </div>
@@ -555,38 +669,191 @@ function Usuarios() {
         </div>
       )}
 
-      {/* Modal de Baneo */}
-      {showBanModal && (
+      {/* ======================================================================
+          MODAL DE ÉXITO: Muestra resumen del usuario creado
+          Este modal aparece después de crear un usuario exitosamente
+      ====================================================================== */}
+      {showSuccessModal && createdUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-md w-full overflow-hidden shadow-2xl animate-[fadeIn_0.3s_ease-in-out]">
+            
+            {/* Header con gradiente */}
+            <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-6 text-center">
+              <div className="w-20 h-20 bg-white rounded-full mx-auto mb-4 flex items-center justify-center shadow-lg">
+                <span className="text-5xl">✅</span>
+              </div>
+              <h2 className="text-2xl font-bold text-white mb-2">
+                ¡Usuario Creado!
+              </h2>
+              <p className="text-green-50 text-sm">
+                El usuario ha sido registrado exitosamente en el sistema
+              </p>
+            </div>
+
+            {/* Contenido con resumen del usuario */}
+            <div className="p-6 space-y-4">
+              
+              {/* Foto de perfil del usuario */}
+              <div className="flex justify-center">
+                {createdUser.fotoPerfil ? (
+                  <img
+                    src={createdUser.fotoPerfil}
+                    alt="Usuario"
+                    className="w-24 h-24 rounded-full object-cover border-4 border-green-100 shadow-md"
+                  />
+                ) : (
+                  <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-3xl font-bold border-4 border-green-100 shadow-md">
+                    {createdUser.nombre.charAt(0)}{createdUser.apellido.charAt(0)}
+                  </div>
+                )}
+              </div>
+
+              {/* Nombre completo del usuario */}
+              <div className="text-center">
+                <h3 className="text-2xl font-bold text-gray-800">
+                  {createdUser.nombre} {createdUser.apellido}
+                </h3>
+                <span className={`inline-block mt-2 px-3 py-1 rounded-full text-sm font-semibold ${
+                  getRolInfo(createdUser.rol).color === 'purple'
+                    ? 'bg-purple-100 text-purple-800'
+                    : getRolInfo(createdUser.rol).color === 'green'
+                    ? 'bg-green-100 text-green-800'
+                    : 'bg-gray-100 text-gray-800'
+                }`}>
+                  {getRolInfo(createdUser.rol).emoji} {getRolInfo(createdUser.rol).label}
+                </span>
+              </div>
+
+              {/* Información del usuario en cards */}
+              <div className="space-y-3">
+                
+                {/* Email */}
+                <div className="bg-gray-50 rounded-lg p-3 flex items-start">
+                  <span className="text-2xl mr-3">📧</span>
+                  <div className="flex-1">
+                    <p className="text-xs text-gray-500 font-medium">Email</p>
+                    <p className="text-sm text-gray-800 font-semibold break-all">
+                      {createdUser.email}
+                    </p>
+                  </div>
+                </div>
+
+                {/* DNI */}
+                <div className="bg-gray-50 rounded-lg p-3 flex items-start">
+                  <span className="text-2xl mr-3">🆔</span>
+                  <div className="flex-1">
+                    <p className="text-xs text-gray-500 font-medium">DNI</p>
+                    <p className="text-sm text-gray-800 font-semibold">
+                      {createdUser.dni}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Teléfono (si existe) */}
+                {createdUser.telefono && (
+                  <div className="bg-gray-50 rounded-lg p-3 flex items-start">
+                    <span className="text-2xl mr-3">📱</span>
+                    <div className="flex-1">
+                      <p className="text-xs text-gray-500 font-medium">Teléfono</p>
+                      <p className="text-sm text-gray-800 font-semibold">
+                        {createdUser.telefono}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Código QR */}
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3 border-2 border-blue-200">
+                  <div className="flex items-start">
+                    <span className="text-2xl mr-3">🔐</span>
+                    <div className="flex-1">
+                      <p className="text-xs text-blue-600 font-medium">Código QR</p>
+                      <p className="text-sm text-gray-800 font-mono font-semibold break-all">
+                        {createdUser.qrCode}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-blue-600 mt-2 ml-9">
+                    ✓ Generado automáticamente
+                  </p>
+                </div>
+
+                {/* Credenciales de acceso */}
+                <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4">
+                  <div className="flex items-start">
+                    <span className="text-2xl mr-3">⚠️</span>
+                    <div className="flex-1">
+                      <p className="text-xs text-yellow-700 font-bold uppercase">Importante</p>
+                      <p className="text-sm text-gray-700 mt-1">
+                        El usuario ya puede iniciar sesión con:
+                      </p>
+                      <div className="mt-2 space-y-1 text-sm">
+                        <p className="text-gray-800">
+                          <strong>Email:</strong> {createdUser.email}
+                        </p>
+                        <p className="text-gray-800">
+                          <strong>Contraseña:</strong> La que configuraste
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Botón para cerrar */}
+              <button
+                onClick={handleCloseSuccessModal}
+                className="w-full mt-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold rounded-lg transition-all shadow-md hover:shadow-lg"
+              >
+                ¡Entendido!
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================================
+          MODAL: BANEAR/DESBANEAR USUARIO
+      ====================================================================== */}
+      {showBanModal && userToBan && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <h2 className="text-2xl font-bold mb-4 text-gray-900">
-              Banear Usuario
+            <h2 className="text-xl font-bold mb-4 text-gray-900">
+              {userToBan.baneado ? 'Desbanear Usuario' : 'Banear Usuario'}
             </h2>
             
             <p className="text-gray-600 mb-4">
-              ¿Estás seguro que deseas banear a <strong>{userToBan?.nombre} {userToBan?.apellido}</strong>?
+              {userToBan.baneado ? '¿Desea desbanear a' : '¿Está seguro de banear a'}{' '}
+              <strong>{userToBan.nombre} {userToBan.apellido}</strong>?
             </p>
 
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-2 text-gray-700">
-                Motivo del baneo *
-              </label>
-              <textarea
-                value={motivoBaneo}
-                onChange={(e) => setMotivoBaneo(e.target.value)}
-                className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none resize-none"
-                rows="3"
-                placeholder="Ingrese el motivo del baneo..."
-              />
-            </div>
+            {!userToBan.baneado && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-1 text-gray-700">
+                  Motivo del baneo
+                </label>
+                <textarea
+                  value={motivoBaneo}
+                  onChange={(e) => setMotivoBaneo(e.target.value)}
+                  rows="3"
+                  className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                  placeholder="Explique el motivo del baneo..."
+                />
+              </div>
+            )}
 
             <div className="flex gap-3">
               <button
-                onClick={confirmarBaneo}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                onClick={handleBanConfirm}
+                className={`flex-1 px-4 py-2 text-white rounded ${
+                  userToBan.baneado 
+                    ? 'bg-green-600 hover:bg-green-700' 
+                    : 'bg-red-600 hover:bg-red-700'
+                }`}
               >
-                Confirmar Baneo
+                {userToBan.baneado ? 'Sí, Desbanear' : 'Sí, Banear'}
               </button>
+              
               <button
                 onClick={() => {
                   setShowBanModal(false);

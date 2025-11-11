@@ -44,7 +44,7 @@ router.put('/:id', verificarToken, verificarAdmin, actualizarUsuario);
 // @route   PUT /api/users/:id/banear
 // @desc    Banear/Desbanear usuario
 // @access  Privado (Admin)
-router.put('/:id', verificarToken, verificarAdmin, toggleBanearUsuario);
+router.put('/:id/banear', verificarToken, verificarAdmin, toggleBanearUsuario);
 
 // @route   DELETE /api/users/:id
 // @desc    Eliminar usuario (soft delete)

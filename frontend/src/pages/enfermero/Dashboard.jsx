@@ -1,10 +1,10 @@
-import { useState, useEffect, useContext } from 'react';
-import { AuthContext } from '../../context/AuthContext';
+import { useState, useEffect } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import { Link } from 'react-router-dom';
 import api from '../../services/api';
 
 function EnfermeroDashboard() {
-  const { usuario, logout } = useContext(AuthContext);
+  const { user: usuario, logout } = useAuth();
   const [stats, setStats] = useState({
     totalUsuarios: 0,
     pruebasSaludVigentes: 0,
