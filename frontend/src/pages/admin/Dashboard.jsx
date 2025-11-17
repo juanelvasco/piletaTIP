@@ -19,6 +19,9 @@ function Dashboard() {
   const [previewImage, setPreviewImage] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  // Estados para modal de éxito
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+
   // Estados para estadísticas
   const [stats, setStats] = useState({
     totalUsuarios: 0,
@@ -37,7 +40,6 @@ function Dashboard() {
     try {
       setLoadingStats(true);
       
-      // Cargar estadísticas en paralelo
       const [userStats, escaneoStats, saludStats] = await Promise.allSettled([
         statsService.getUserStats(),
         statsService.getEscaneoStats().catch(() => ({ hoy: 0 })),
@@ -57,7 +59,6 @@ function Dashboard() {
     }
   };
 
-  // Cargar datos del usuario al abrir el modal
   const handleOpenEditModal = () => {
     setFormData({
       nombre: user?.nombre || '',
@@ -70,23 +71,19 @@ function Dashboard() {
     setShowEditModal(true);
   };
 
-  // Manejar cambio de imagen
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Validar tamaño (max 2MB)
       if (file.size > 2 * 1024 * 1024) {
         alert('La imagen es muy grande. Máximo 2MB');
         return;
       }
 
-      // Validar tipo
       if (!file.type.startsWith('image/')) {
         alert('El archivo debe ser una imagen');
         return;
       }
 
-      // Convertir a base64
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64String = reader.result;
@@ -97,7 +94,6 @@ function Dashboard() {
     }
   };
 
-  // Guardar cambios del perfil
   const handleSaveProfile = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -106,7 +102,7 @@ function Dashboard() {
       const result = await updateProfile(formData);
       if (result.success) {
         setShowEditModal(false);
-        alert('Perfil actualizado exitosamente');
+        setShowSuccessModal(true);
       } else {
         alert(result.error || 'Error al actualizar perfil');
       }
@@ -162,7 +158,6 @@ function Dashboard() {
       <main className="max-w-7xl mx-auto px-4 py-8">
         {/* Estadísticas rápidas */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          {/* Card Usuarios */}
           <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow">
             <div className="flex items-center justify-between">
               <div>
@@ -177,7 +172,6 @@ function Dashboard() {
             </div>
           </div>
 
-          {/* Card Abonos */}
           <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow">
             <div className="flex items-center justify-between">
               <div>
@@ -192,7 +186,6 @@ function Dashboard() {
             </div>
           </div>
 
-          {/* Card Escaneos Hoy */}
           <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow">
             <div className="flex items-center justify-between">
               <div>
@@ -207,7 +200,6 @@ function Dashboard() {
             </div>
           </div>
 
-          {/* Card Pruebas Vigentes */}
           <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow">
             <div className="flex items-center justify-between">
               <div>
@@ -256,7 +248,6 @@ function Dashboard() {
           </div>
         </div>
 
-        {/* Botón para recargar estadísticas */}
         <div className="text-center">
           <button
             onClick={cargarEstadisticas}
@@ -268,14 +259,11 @@ function Dashboard() {
         </div>
       </main>
 
-      {/* ========================================================================
-          ✨ MODAL EDITAR PERFIL MEJORADO ✨
-      ======================================================================== */}
+      {/* Modal Editar Perfil */}
       {showEditModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl my-8 animate-[fadeIn_0.3s_ease-in-out]">
             
-            {/* Header con gradiente púrpura */}
             <div className="bg-gradient-to-r from-purple-500 to-indigo-600 p-6 rounded-t-2xl">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
@@ -283,12 +271,8 @@ function Dashboard() {
                     <span className="text-3xl">✏️</span>
                   </div>
                   <div>
-                    <h2 className="text-2xl font-bold text-white">
-                      Editar Mi Perfil
-                    </h2>
-                    <p className="text-purple-100 text-sm">
-                      Actualiza tu información personal
-                    </p>
+                    <h2 className="text-2xl font-bold text-white">Editar Mi Perfil</h2>
+                    <p className="text-purple-100 text-sm">Actualiza tu información personal</p>
                   </div>
                 </div>
                 <button
@@ -303,10 +287,8 @@ function Dashboard() {
               </div>
             </div>
             
-            {/* Contenido del formulario */}
             <form onSubmit={handleSaveProfile} className="p-6 space-y-5">
               
-              {/* Banner de privilegios de admin */}
               <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border-2 border-purple-200 rounded-xl p-4">
                 <div className="flex items-start space-x-3">
                   <div className="flex-shrink-0">
@@ -315,17 +297,12 @@ function Dashboard() {
                     </div>
                   </div>
                   <div className="flex-1">
-                    <p className="text-xs text-purple-700 font-bold uppercase tracking-wide mb-1">
-                      Privilegios de Administrador
-                    </p>
-                    <p className="text-sm text-gray-700">
-                      Puedes editar todos tus datos personales incluida tu foto de perfil
-                    </p>
+                    <p className="text-xs text-purple-700 font-bold uppercase tracking-wide mb-1">Privilegios de Administrador</p>
+                    <p className="text-sm text-gray-700">Puedes editar todos tus datos personales incluida tu foto de perfil</p>
                   </div>
                 </div>
               </div>
 
-              {/* Foto de perfil mejorada */}
               <div className="flex flex-col items-center pb-4 border-b border-gray-200">
                 <div className="relative mb-3">
                   <img
@@ -340,12 +317,7 @@ function Dashboard() {
                 
                 <div className="flex gap-2">
                   <label className="cursor-pointer bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-md">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageChange}
-                      className="hidden"
-                    />
+                    <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
                     {previewImage ? '🔄 Cambiar foto' : '📁 Subir foto'}
                   </label>
                   
@@ -365,10 +337,7 @@ function Dashboard() {
                 <p className="text-xs text-gray-500 mt-2">Máximo 2MB - JPG, PNG o GIF</p>
               </div>
 
-              {/* Campos del formulario con iconos */}
               <div className="grid grid-cols-2 gap-4">
-                
-                {/* Nombre */}
                 <div>
                   <label className="block text-sm font-semibold mb-2 text-gray-700 flex items-center">
                     <span className="mr-2">👤</span> Nombre *
@@ -383,7 +352,6 @@ function Dashboard() {
                   />
                 </div>
 
-                {/* Apellido */}
                 <div>
                   <label className="block text-sm font-semibold mb-2 text-gray-700 flex items-center">
                     <span className="mr-2">👤</span> Apellido *
@@ -399,7 +367,6 @@ function Dashboard() {
                 </div>
               </div>
 
-              {/* Email */}
               <div>
                 <label className="block text-sm font-semibold mb-2 text-gray-700 flex items-center">
                   <span className="mr-2">📧</span> Email *
@@ -414,7 +381,6 @@ function Dashboard() {
                 />
               </div>
 
-              {/* Teléfono */}
               <div>
                 <label className="block text-sm font-semibold mb-2 text-gray-700 flex items-center">
                   <span className="mr-2">📱</span> Teléfono
@@ -428,7 +394,6 @@ function Dashboard() {
                 />
               </div>
 
-              {/* Botones de acción */}
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
@@ -463,6 +428,66 @@ function Dashboard() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Éxito */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 animate-[fadeIn_0.3s_ease-in-out]">
+          <div className="bg-white rounded-2xl max-w-md w-full overflow-hidden shadow-2xl animate-[slideUp_0.4s_ease-out]">
+            
+            <div className="bg-gradient-to-br from-purple-400 via-purple-500 to-indigo-600 p-8 text-center relative overflow-hidden">
+              <div className="absolute inset-0 opacity-10">
+                <div className="absolute top-0 left-0 w-40 h-40 bg-white rounded-full -translate-x-20 -translate-y-20"></div>
+                <div className="absolute bottom-0 right-0 w-60 h-60 bg-white rounded-full translate-x-20 translate-y-20"></div>
+              </div>
+              
+              <div className="relative">
+                <div className="w-24 h-24 bg-white rounded-full mx-auto mb-4 flex items-center justify-center shadow-xl animate-[bounce_0.6s_ease-in-out]">
+                  <span className="text-6xl">✅</span>
+                </div>
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-24 border-4 border-white rounded-full animate-[ping_1s_ease-in-out_infinite] opacity-40"></div>
+              </div>
+              
+              <h2 className="text-3xl font-bold text-white mb-2 drop-shadow-lg">
+                ¡Perfil Actualizado!
+              </h2>
+              <p className="text-purple-50 text-base font-medium">
+                Tus datos se han guardado correctamente
+              </p>
+            </div>
+
+            <div className="p-6">
+              <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl p-5 mb-5 border-2 border-purple-200">
+                <div className="flex items-center space-x-4">
+                  <div className="flex-shrink-0">
+                    <img
+                      src={user?.fotoPerfil || `https://ui-avatars.com/api/?name=${user?.nombre}+${user?.apellido}&background=8B5CF6&color=fff&size=64`}
+                      alt="Perfil"
+                      className="w-16 h-16 rounded-full object-cover border-4 border-white shadow-md"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-xl font-bold text-gray-800">
+                      {user?.nombre} {user?.apellido}
+                    </h3>
+                    <p className="text-sm text-gray-600 flex items-center gap-1">
+                      <span>👑</span>
+                      <span className="font-semibold">Administrador</span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowSuccessModal(false)}
+                className="w-full py-3.5 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white font-bold rounded-xl transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center justify-center gap-2"
+              >
+                <span className="text-xl">✓</span>
+                <span>¡Perfecto!</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

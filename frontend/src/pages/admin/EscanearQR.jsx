@@ -11,32 +11,28 @@ function EscanearQR() {
   const html5QrcodeScannerRef = useRef(null);
 
   // Estados
-  const [modoEscaneo, setModoEscaneo] = useState('camara'); // 'camara' o 'manual'
+  const [modoEscaneo, setModoEscaneo] = useState('camara');
   const [qrCode, setQrCode] = useState('');
   const [procesando, setProcesando] = useState(false);
   const [notas, setNotas] = useState('');
   const [escaneosHoy, setEscaneosHoy] = useState([]);
   const [statsHoy, setStatsHoy] = useState(null);
-
-  // ============================================================================
-  // NUEVO: Estados para modal de resultado
-  // ============================================================================
   const [showResultModal, setShowResultModal] = useState(false);
   const [resultData, setResultData] = useState(null);
+  
+  // 👇 NUEVO: Estado para el lightbox de la foto
+  const [showPhotoLightbox, setShowPhotoLightbox] = useState(false);
 
-  // Cargar estadísticas del día
   useEffect(() => {
     cargarEscaneosHoy();
   }, []);
 
-  // Inicializar escáner cuando el modo es cámara
   useEffect(() => {
     if (modoEscaneo === 'camara') {
       iniciarEscaner();
     } else {
       detenerEscaner();
     }
-
     return () => {
       detenerEscaner();
     };
@@ -44,7 +40,6 @@ function EscanearQR() {
 
   const iniciarEscaner = () => {
     if (!scannerRef.current) return;
-
     html5QrcodeScannerRef.current = new Html5QrcodeScanner(
       'reader',
       { 
@@ -54,7 +49,6 @@ function EscanearQR() {
       },
       false
     );
-
     html5QrcodeScannerRef.current.render(onScanSuccess, onScanError);
   };
 
@@ -67,7 +61,7 @@ function EscanearQR() {
     }
   };
 
-  const onScanSuccess = (decodedText, decodedResult) => {
+  const onScanSuccess = (decodedText) => {
     console.log('QR escaneado:', decodedText);
     procesarEscaneo(decodedText);
   };
@@ -79,7 +73,7 @@ function EscanearQR() {
   const cargarEscaneosHoy = async () => {
     try {
       const data = await escaneoService.getEscaneosHoy();
-      setEscaneosHoy(data.escaneos.slice(0, 5)); // Últimos 5
+      setEscaneosHoy(data.escaneos.slice(0, 5));
       setStatsHoy({
         total: data.total,
         exitosos: data.exitosos,
@@ -91,37 +85,23 @@ function EscanearQR() {
     }
   };
 
-  // ============================================================================
-  // NUEVO: Procesar escaneo con modal de resultado
-  // ============================================================================
   const procesarEscaneo = async (codigoQR) => {
     if (procesando) return;
-
     try {
       setProcesando(true);
-
       const data = await escaneoService.escanearQR(codigoQR, notas);
-      
-      // Preparar datos para el modal
       setResultData(data);
       setShowResultModal(true);
-      
       setQrCode('');
       setNotas('');
-      
-      // Recargar estadísticas
       await cargarEscaneosHoy();
-
     } catch (error) {
       const errorData = error.response?.data;
-      
-      // Mostrar error en modal
       setResultData(errorData || {
         exitoso: false,
         message: 'Error al procesar el escaneo'
       });
       setShowResultModal(true);
-      
     } finally {
       setProcesando(false);
     }
@@ -134,7 +114,6 @@ function EscanearQR() {
     }
   };
 
-  // Formatear fecha y hora
   const formatFechaHora = (fecha) => {
     return new Date(fecha).toLocaleTimeString('es-AR', {
       hour: '2-digit',
@@ -142,7 +121,6 @@ function EscanearQR() {
     });
   };
 
-  // Obtener info del motivo
   const obtenerInfoMotivo = (motivoRechazo) => {
     const motivos = {
       'qr_invalido': { texto: 'QR inválido', color: 'text-red-600', emoji: '🔴' },
@@ -151,10 +129,9 @@ function EscanearQR() {
       'sin_abono': { texto: 'Sin abono', color: 'text-yellow-600', emoji: '📭' },
       'abono_no_pagado': { texto: 'Abono no pagado', color: 'text-yellow-600', emoji: '💳' },
       'abono_vencido': { texto: 'Abono vencido', color: 'text-red-600', emoji: '⏰' },
-      'sin_prueba_salud': { texto: 'Sin prueba de salud', color: 'text-purple-600', emoji: '🏥' },
-      'prueba_salud_vencida': { texto: 'Prueba de salud vencida', color: 'text-red-600', emoji: '📋' }
+      'sin_prueba_salud': { texto: 'Sin apto médico', color: 'text-purple-600', emoji: '🏥' },
+      'prueba_salud_vencida': { texto: 'Apto médico vencido', color: 'text-red-600', emoji: '📋' }
     };
-
     return motivos[motivoRechazo] || { texto: motivoRechazo, color: 'text-gray-600', emoji: '❓' };
   };
 
@@ -185,7 +162,6 @@ function EscanearQR() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Panel izquierdo - Escáner */}
           <div className="lg:col-span-2">
-            {/* Selector de modo */}
             <div className="bg-white rounded-lg shadow p-4 mb-6">
               <div className="flex gap-4">
                 <button
@@ -211,32 +187,18 @@ function EscanearQR() {
               </div>
             </div>
 
-            {/* Área de escaneo */}
-            <div className="bg-white rounded-lg shadow p-6 mb-6">
+            <div className="bg-white rounded-lg shadow p-6">
               {modoEscaneo === 'camara' ? (
                 <div>
-                  <h3 className="text-lg font-semibold mb-4 text-gray-900">
-                    Escaneo con Cámara
-                  </h3>
-                  <div 
-                    ref={scannerRef}
-                    id="reader" 
-                    className="w-full"
-                  />
-                  <p className="text-sm text-gray-600 mt-4 text-center">
-                    Coloca el código QR frente a la cámara
-                  </p>
+                  <h3 className="text-lg font-semibold mb-4 text-gray-900">Escanear con Cámara</h3>
+                  <div id="reader" ref={scannerRef}></div>
                 </div>
               ) : (
                 <div>
-                  <h3 className="text-lg font-semibold mb-4 text-gray-900">
-                    Entrada Manual
-                  </h3>
+                  <h3 className="text-lg font-semibold mb-4 text-gray-900">Entrada Manual</h3>
                   <form onSubmit={handleEscaneoManual} className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium mb-2 text-gray-700">
-                        Código QR
-                      </label>
+                      <label className="block text-sm font-medium mb-2 text-gray-700">Código QR</label>
                       <input
                         type="text"
                         value={qrCode}
@@ -246,11 +208,8 @@ function EscanearQR() {
                         autoFocus
                       />
                     </div>
-
                     <div>
-                      <label className="block text-sm font-medium mb-2 text-gray-700">
-                        Notas (opcional)
-                      </label>
+                      <label className="block text-sm font-medium mb-2 text-gray-700">Notas (opcional)</label>
                       <textarea
                         value={notas}
                         onChange={(e) => setNotas(e.target.value)}
@@ -259,7 +218,6 @@ function EscanearQR() {
                         rows="2"
                       />
                     </div>
-
                     <button
                       type="submit"
                       disabled={!qrCode.trim() || procesando}
@@ -275,29 +233,22 @@ function EscanearQR() {
 
           {/* Panel derecho - Estadísticas */}
           <div className="lg:col-span-1">
-            {/* Estadísticas del día */}
             <div className="bg-white rounded-lg shadow p-6 mb-6">
-              <h3 className="text-lg font-semibold mb-4 text-gray-900">
-                📊 Estadísticas de Hoy
-              </h3>
-
+              <h3 className="text-lg font-semibold mb-4 text-gray-900">📊 Estadísticas de Hoy</h3>
               {statsHoy ? (
                 <div className="space-y-4">
                   <div className="bg-blue-50 p-4 rounded-lg">
                     <p className="text-sm text-blue-600 font-medium">Total Escaneos</p>
                     <p className="text-3xl font-bold text-blue-900">{statsHoy.total}</p>
                   </div>
-
                   <div className="bg-green-50 p-4 rounded-lg">
                     <p className="text-sm text-green-600 font-medium">Exitosos</p>
                     <p className="text-3xl font-bold text-green-900">{statsHoy.exitosos}</p>
                   </div>
-
                   <div className="bg-red-50 p-4 rounded-lg">
                     <p className="text-sm text-red-600 font-medium">Rechazados</p>
                     <p className="text-3xl font-bold text-red-900">{statsHoy.rechazados}</p>
                   </div>
-
                   <div className="bg-purple-50 p-4 rounded-lg">
                     <p className="text-sm text-purple-600 font-medium">Tasa de Éxito</p>
                     <p className="text-3xl font-bold text-purple-900">{statsHoy.porcentajeExito}%</p>
@@ -308,12 +259,8 @@ function EscanearQR() {
               )}
             </div>
 
-            {/* Últimos escaneos */}
             <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold mb-4 text-gray-900">
-                🕐 Últimos Escaneos
-              </h3>
-
+              <h3 className="text-lg font-semibold mb-4 text-gray-900">🕐 Últimos Escaneos</h3>
               {escaneosHoy.length === 0 ? (
                 <p className="text-gray-600 text-sm">No hay escaneos aún</p>
               ) : (
@@ -328,16 +275,12 @@ function EscanearQR() {
                       }`}
                     >
                       <div className="flex items-start gap-2">
-                        <div className="text-lg">
-                          {escaneo.exitoso ? '✅' : '❌'}
-                        </div>
+                        <div className="text-lg">{escaneo.exitoso ? '✅' : '❌'}</div>
                         <div className="flex-1 min-w-0">
                           <p className="font-semibold text-sm text-gray-900 truncate">
                             {escaneo.usuario?.nombre} {escaneo.usuario?.apellido}
                           </p>
-                          <p className="text-xs text-gray-600">
-                            {formatFechaHora(escaneo.fechaHora)}
-                          </p>
+                          <p className="text-xs text-gray-600">{formatFechaHora(escaneo.fechaHora)}</p>
                           {!escaneo.exitoso && escaneo.motivoRechazo && (
                             <p className={`text-xs ${obtenerInfoMotivo(escaneo.motivoRechazo).color} mt-1`}>
                               {obtenerInfoMotivo(escaneo.motivoRechazo).texto}
@@ -349,7 +292,6 @@ function EscanearQR() {
                   ))}
                 </div>
               )}
-
               <button
                 onClick={() => navigate('/admin/reportes')}
                 className="w-full mt-4 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition text-sm font-medium"
@@ -361,15 +303,12 @@ function EscanearQR() {
         </div>
       </main>
 
-      {/* ========================================================================
-          ✨ MODAL DE RESULTADO DEL ESCANEO ✨
-          Muestra el resultado de forma profesional (éxito o rechazo)
-      ======================================================================== */}
+      {/* MODAL DE RESULTADO */}
       {showResultModal && resultData && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl animate-[fadeIn_0.3s_ease-in-out]">
+          <div className="bg-white rounded-2xl max-w-2xl w-full overflow-hidden shadow-2xl animate-[fadeIn_0.3s_ease-in-out]">
             
-            {/* Header dinámico según resultado */}
+            {/* Header dinámico */}
             <div className={`p-6 text-center ${
               resultData.exitoso
                 ? 'bg-gradient-to-r from-green-500 to-emerald-600'
@@ -381,9 +320,7 @@ function EscanearQR() {
               <h2 className="text-3xl font-bold text-white mb-2">
                 {resultData.exitoso ? '¡Acceso Permitido!' : 'Acceso Denegado'}
               </h2>
-              <p className={`text-lg font-medium ${
-                resultData.exitoso ? 'text-green-50' : 'text-red-50'
-              }`}>
+              <p className={`text-lg font-medium ${resultData.exitoso ? 'text-green-50' : 'text-red-50'}`}>
                 {resultData.message}
               </p>
             </div>
@@ -391,132 +328,240 @@ function EscanearQR() {
             {/* Contenido del modal */}
             <div className="p-6 space-y-4">
               
-              {/* Información del usuario */}
+              {/* Información del usuario con foto CLICKEABLE */}
               {resultData.usuario && (
                 <>
                   <div className="text-center border-b pb-4">
+                    <div className="flex justify-center mb-4">
+                      {/* 👇 FOTO CLICKEABLE CON CURSOR POINTER Y HOVER */}
+                      <img
+                        src={resultData.usuario.fotoPerfil || `https://ui-avatars.com/api/?name=${resultData.usuario.nombre}+${resultData.usuario.apellido}&background=3B82F6&color=fff&size=128`}
+                        alt={`${resultData.usuario.nombre} ${resultData.usuario.apellido}`}
+                        className="w-24 h-24 rounded-full object-cover border-4 border-gray-200 shadow-lg cursor-pointer hover:opacity-80 hover:scale-105 transition-all"
+                        onClick={() => setShowPhotoLightbox(true)}
+                        title="Click para ampliar foto"
+                      />
+                    </div>
                     <h3 className="text-2xl font-bold text-gray-800">
                       {resultData.usuario.nombre} {resultData.usuario.apellido}
                     </h3>
                     <p className="text-gray-600 mt-1">
                       DNI: <span className="font-semibold">{resultData.usuario.dni}</span>
                     </p>
+                    <p className="text-xs text-gray-500 mt-2 italic">
+                      💡 Click en la foto para ampliar
+                    </p>
                   </div>
 
-                  {/* Si es exitoso - Mostrar info del abono */}
-                  {resultData.exitoso && resultData.usuario.abono && (
-                    <div className="space-y-3">
-                      <p className="text-sm font-bold text-gray-700 uppercase">Información del Abono</p>
+                  {/* GRID DE 2 COLUMNAS CON BADGES ALINEADOS */}
+                  <div className="space-y-3">
+                    <p className="text-sm font-bold text-gray-700 uppercase text-center">
+                      Estado de Acceso
+                    </p>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       
-                      {/* Tipo de abono */}
-                      <div className="bg-blue-50 rounded-lg p-3 flex items-start border-2 border-blue-200">
-                        <span className="text-2xl mr-3">🎫</span>
-                        <div className="flex-1">
-                          <p className="text-xs text-blue-600 font-medium">Tipo de Abono</p>
-                          <p className="text-sm text-gray-800 font-bold capitalize">
-                            {resultData.usuario.abono.tipo}
-                          </p>
-                        </div>
+                      {/* COLUMNA 1: ABONO */}
+                      <div className="flex flex-col h-full">
+                        <p className="text-xs font-semibold text-gray-600 uppercase text-center mb-2">
+                          💳 Abono
+                        </p>
+                        
+                        {resultData.usuario.abono ? (
+                          <div className="flex flex-col flex-1">
+                            <div className="space-y-2 flex-1">
+                              <div className="bg-blue-50 rounded-lg p-3 border-2 border-blue-200">
+                                <p className="text-xs text-blue-600 font-medium mb-1">Tipo</p>
+                                <p className="text-sm text-gray-800 font-bold capitalize">
+                                  {resultData.usuario.abono.tipo}
+                                </p>
+                              </div>
+
+                              <div className={`rounded-lg p-3 border-2 ${
+                                resultData.usuario.abono.diasRestantes > 7
+                                  ? 'bg-green-50 border-green-200'
+                                  : resultData.usuario.abono.diasRestantes > 3
+                                  ? 'bg-yellow-50 border-yellow-200'
+                                  : resultData.usuario.abono.diasRestantes > 0
+                                  ? 'bg-orange-50 border-orange-200'
+                                  : 'bg-red-50 border-red-200'
+                              }`}>
+                                <p className={`text-xs font-medium mb-1 ${
+                                  resultData.usuario.abono.diasRestantes > 7 ? 'text-green-600' :
+                                  resultData.usuario.abono.diasRestantes > 3 ? 'text-yellow-600' : 
+                                  resultData.usuario.abono.diasRestantes > 0 ? 'text-orange-600' : 'text-red-600'
+                                }`}>
+                                  Vigencia
+                                </p>
+                                <p className="text-xl font-bold text-gray-800">
+                                  {resultData.usuario.abono.diasRestantes > 0 ? (
+                                    <>
+                                      {resultData.usuario.abono.diasRestantes} 
+                                      <span className="text-xs font-normal ml-1">días</span>
+                                    </>
+                                  ) : (
+                                    <span className="text-sm">Vencido</span>
+                                  )}
+                                </p>
+                                {resultData.usuario.abono.diasRestantes <= 7 && resultData.usuario.abono.diasRestantes > 0 && (
+                                  <p className="text-xs text-gray-600 mt-1">
+                                    ⚠️ Próximo a vencer
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className={`mt-2 rounded-lg p-2 text-center border-2 ${
+                              resultData.usuario.abono.diasRestantes > 0
+                                ? 'bg-green-50 border-green-300'
+                                : 'bg-red-50 border-red-300'
+                            }`}>
+                              <p className={`text-sm font-bold ${
+                                resultData.usuario.abono.diasRestantes > 0
+                                  ? 'text-green-700'
+                                  : 'text-red-700'
+                              }`}>
+                                {resultData.usuario.abono.diasRestantes > 0 ? '✅ Vigente' : '❌ Vencido'}
+                              </p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col flex-1 justify-between">
+                            <div className="bg-red-50 border-2 border-red-300 rounded-lg p-4 text-center flex-1 flex flex-col justify-center">
+                              <p className="text-3xl mb-2">📭</p>
+                              <p className="text-sm font-bold text-red-700">Sin Abono</p>
+                              <p className="text-xs text-gray-600 mt-1">Debe adquirir un abono</p>
+                            </div>
+                            <div className="mt-2 rounded-lg p-2 text-center border-2 bg-red-50 border-red-300">
+                              <p className="text-sm font-bold text-red-700">❌ Sin Abono</p>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
-                      {/* Días restantes */}
-                      <div className={`rounded-lg p-3 flex items-start border-2 ${
-                        resultData.usuario.abono.diasRestantes > 7
-                          ? 'bg-green-50 border-green-200'
-                          : resultData.usuario.abono.diasRestantes > 3
-                          ? 'bg-yellow-50 border-yellow-200'
-                          : 'bg-orange-50 border-orange-200'
-                      }`}>
-                        <span className="text-2xl mr-3">
-                          {resultData.usuario.abono.diasRestantes > 7 ? '✅' : 
-                           resultData.usuario.abono.diasRestantes > 3 ? '⚠️' : '⏰'}
+                      {/* COLUMNA 2: APTO MÉDICO */}
+                      <div className="flex flex-col h-full">
+                        <p className="text-xs font-semibold text-gray-600 uppercase text-center mb-2">
+                          🏥 Apto Médico
+                        </p>
+                        
+                        {resultData.usuario.pruebaSalud ? (
+                          <div className="flex flex-col flex-1">
+                            <div className="space-y-2 flex-1">
+                              <div className={`rounded-lg p-3 border-2 ${
+                                resultData.usuario.pruebaSalud.diasRestantes > 30
+                                  ? 'bg-green-50 border-green-200'
+                                  : resultData.usuario.pruebaSalud.diasRestantes > 7
+                                  ? 'bg-yellow-50 border-yellow-200'
+                                  : resultData.usuario.pruebaSalud.diasRestantes > 0
+                                  ? 'bg-orange-50 border-orange-200'
+                                  : 'bg-red-50 border-red-200'
+                              }`}>
+                                <p className={`text-xs font-medium mb-1 ${
+                                  resultData.usuario.pruebaSalud.diasRestantes > 30 ? 'text-green-600' :
+                                  resultData.usuario.pruebaSalud.diasRestantes > 7 ? 'text-yellow-600' : 
+                                  resultData.usuario.pruebaSalud.diasRestantes > 0 ? 'text-orange-600' : 'text-red-600'
+                                }`}>
+                                  Vigencia
+                                </p>
+                                <p className="text-xl font-bold text-gray-800">
+                                  {resultData.usuario.pruebaSalud.diasRestantes > 0 ? (
+                                    <>
+                                      {resultData.usuario.pruebaSalud.diasRestantes}
+                                      <span className="text-xs font-normal ml-1">días</span>
+                                    </>
+                                  ) : (
+                                    <span className="text-sm">Vencido</span>
+                                  )}
+                                </p>
+                                {resultData.usuario.pruebaSalud.diasRestantes <= 30 && resultData.usuario.pruebaSalud.diasRestantes > 0 && (
+                                  <p className="text-xs text-gray-600 mt-1">
+                                    {resultData.usuario.pruebaSalud.diasRestantes <= 7 
+                                      ? '⚠️ Próximo a vencer' 
+                                      : '⏰ Renovar pronto'}
+                                  </p>
+                                )}
+                              </div>
+
+                              <div className="bg-gray-50 rounded-lg p-3 border-2 border-gray-200">
+                                <p className="text-xs text-gray-600 font-medium mb-1">Vence</p>
+                                <p className="text-sm text-gray-800 font-semibold">
+                                  {new Date(resultData.usuario.pruebaSalud.vence).toLocaleDateString('es-AR')}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className={`mt-2 rounded-lg p-2 text-center border-2 ${
+                              resultData.usuario.pruebaSalud.diasRestantes > 0
+                                ? 'bg-green-50 border-green-300'
+                                : 'bg-red-50 border-red-300'
+                            }`}>
+                              <p className={`text-sm font-bold ${
+                                resultData.usuario.pruebaSalud.diasRestantes > 0
+                                  ? 'text-green-700'
+                                  : 'text-red-700'
+                              }`}>
+                                {resultData.usuario.pruebaSalud.diasRestantes > 0 ? '✅ Vigente' : '❌ Vencido'}
+                              </p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col flex-1 justify-between">
+                            <div className="bg-red-50 border-2 border-red-300 rounded-lg p-4 text-center flex-1 flex flex-col justify-center">
+                              <p className="text-3xl mb-2">🏥</p>
+                              <p className="text-sm font-bold text-red-700">Sin Apto Médico</p>
+                              <p className="text-xs text-gray-600 mt-1">Debe presentar certificado</p>
+                            </div>
+                            <div className="mt-2 rounded-lg p-2 text-center border-2 bg-red-50 border-red-300">
+                              <p className="text-sm font-bold text-red-700">❌ Sin Apto</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Motivo del rechazo */}
+                  {!resultData.exitoso && resultData.motivoRechazo && (
+                    <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                      <div className="flex items-start">
+                        <span className="text-3xl mr-3">
+                          {obtenerInfoMotivo(resultData.motivoRechazo).emoji}
                         </span>
                         <div className="flex-1">
-                          <p className={`text-xs font-medium ${
-                            resultData.usuario.abono.diasRestantes > 7 ? 'text-green-600' :
-                            resultData.usuario.abono.diasRestantes > 3 ? 'text-yellow-600' : 'text-orange-600'
-                          }`}>
-                            Días Restantes
+                          <p className="text-xs text-red-600 font-bold uppercase mb-1">Motivo del Rechazo</p>
+                          <p className={`text-lg font-bold ${obtenerInfoMotivo(resultData.motivoRechazo).color}`}>
+                            {obtenerInfoMotivo(resultData.motivoRechazo).texto}
                           </p>
-                          <p className="text-2xl font-bold text-gray-800">
-                            {resultData.usuario.abono.diasRestantes} 
-                            <span className="text-sm font-normal ml-1">días</span>
-                          </p>
-                          {resultData.usuario.abono.diasRestantes <= 7 && (
-                            <p className="text-xs text-gray-600 mt-1">
-                              {resultData.usuario.abono.diasRestantes <= 3 
-                                ? '⚠️ Abono próximo a vencer' 
-                                : 'Considerar renovación pronto'}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Hora de acceso */}
-                      <div className="bg-gray-50 rounded-lg p-3 flex items-start">
-                        <span className="text-2xl mr-3">🕐</span>
-                        <div className="flex-1">
-                          <p className="text-xs text-gray-500 font-medium">Hora de Acceso</p>
-                          <p className="text-sm text-gray-800 font-semibold">
-                            {new Date().toLocaleTimeString('es-AR', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              second: '2-digit'
-                            })}
+                          <p className="text-sm text-gray-600 mt-2">
+                            {resultData.motivoRechazo === 'qr_invalido' && 'El código QR no es válido o no existe en el sistema.'}
+                            {resultData.motivoRechazo === 'usuario_inactivo' && 'El usuario debe activar su cuenta.'}
+                            {resultData.motivoRechazo === 'usuario_baneado' && 'El usuario ha sido suspendido del sistema.'}
+                            {resultData.motivoRechazo === 'sin_abono' && 'El usuario no tiene un abono asignado.'}
+                            {resultData.motivoRechazo === 'abono_no_pagado' && 'El abono existe pero aún no ha sido pagado.'}
+                            {resultData.motivoRechazo === 'abono_vencido' && 'El abono ha expirado y debe renovarse.'}
+                            {resultData.motivoRechazo === 'sin_prueba_salud' && 'Falta el certificado de aptitud física (apto médico).'}
+                            {resultData.motivoRechazo === 'prueba_salud_vencida' && 'El certificado de aptitud física ha vencido.'}
                           </p>
                         </div>
                       </div>
                     </div>
                   )}
 
-                  {/* Si es rechazo - Mostrar motivo */}
-                  {!resultData.exitoso && resultData.motivoRechazo && (
-                    <div className="space-y-3">
-                      <p className="text-sm font-bold text-gray-700 uppercase">Motivo del Rechazo</p>
-                      
-                      <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4">
-                        <div className="flex items-start">
-                          <span className="text-3xl mr-3">
-                            {obtenerInfoMotivo(resultData.motivoRechazo).emoji}
-                          </span>
-                          <div className="flex-1">
-                            <p className={`text-lg font-bold ${obtenerInfoMotivo(resultData.motivoRechazo).color}`}>
-                              {obtenerInfoMotivo(resultData.motivoRechazo).texto}
-                            </p>
-                            <p className="text-sm text-gray-600 mt-2">
-                              {resultData.motivoRechazo === 'qr_invalido' && 'El código QR no es válido o no existe en el sistema.'}
-                              {resultData.motivoRechazo === 'usuario_inactivo' && 'El usuario debe activar su cuenta.'}
-                              {resultData.motivoRechazo === 'usuario_baneado' && 'El usuario ha sido suspendido del sistema.'}
-                              {resultData.motivoRechazo === 'sin_abono' && 'El usuario no tiene un abono asignado.'}
-                              {resultData.motivoRechazo === 'abono_no_pagado' && 'El abono existe pero aún no ha sido pagado.'}
-                              {resultData.motivoRechazo === 'abono_vencido' && 'El abono ha expirado. Debe renovarse.'}
-                              {resultData.motivoRechazo === 'sin_prueba_salud' && 'Falta el certificado de aptitud física.'}
-                              {resultData.motivoRechazo === 'prueba_salud_vencida' && 'El certificado de aptitud ha vencido.'}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Instrucciones para el usuario */}
-                      <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4">
-                        <div className="flex items-start">
-                          <span className="text-2xl mr-3">💡</span>
-                          <div className="flex-1">
-                            <p className="text-xs text-yellow-700 font-bold uppercase mb-1">Acción Requerida</p>
-                            <p className="text-sm text-gray-700">
-                              {resultData.motivoRechazo === 'sin_abono' && 'El usuario debe adquirir un abono para acceder.'}
-                              {resultData.motivoRechazo === 'abono_no_pagado' && 'El usuario debe completar el pago de su abono.'}
-                              {resultData.motivoRechazo === 'abono_vencido' && 'El usuario debe renovar su abono.'}
-                              {resultData.motivoRechazo === 'sin_prueba_salud' && 'El usuario debe presentar su certificado de aptitud física.'}
-                              {resultData.motivoRechazo === 'prueba_salud_vencida' && 'El usuario debe renovar su certificado de aptitud física.'}
-                              {(resultData.motivoRechazo === 'usuario_baneado' || resultData.motivoRechazo === 'usuario_inactivo') && 'Contactar con administración.'}
-                              {resultData.motivoRechazo === 'qr_invalido' && 'Verificar el código QR del usuario.'}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
+                  {/* Hora de acceso */}
+                  <div className="bg-gray-50 rounded-lg p-3 flex items-center justify-center">
+                    <span className="text-xl mr-2">🕐</span>
+                    <div>
+                      <p className="text-xs text-gray-500 font-medium">Hora de Escaneo</p>
+                      <p className="text-sm text-gray-800 font-semibold">
+                        {new Date().toLocaleTimeString('es-AR', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit'
+                        })}
+                      </p>
                     </div>
-                  )}
+                  </div>
                 </>
               )}
 
@@ -531,6 +576,43 @@ function EscanearQR() {
               >
                 Cerrar
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🖼️ LIGHTBOX PARA AMPLIAR LA FOTO - CLICK EN CUALQUIER LADO CIERRA */}
+      {showPhotoLightbox && resultData?.usuario && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center p-4 z-[60] cursor-pointer animate-[fadeIn_0.2s_ease-in-out]"
+          onClick={() => setShowPhotoLightbox(false)}
+        >
+          <div className="relative max-w-4xl w-full">
+            {/* Instrucción */}
+            <div className="absolute top-4 left-0 right-0 text-center">
+              <p className="text-white text-sm bg-black bg-opacity-50 inline-block px-4 py-2 rounded-full">
+                Click en cualquier lugar para cerrar
+              </p>
+            </div>
+
+            {/* Foto ampliada */}
+            <img
+              src={resultData.usuario.fotoPerfil || `https://ui-avatars.com/api/?name=${resultData.usuario.nombre}+${resultData.usuario.apellido}&background=3B82F6&color=fff&size=512`}
+              alt={`${resultData.usuario.nombre} ${resultData.usuario.apellido}`}
+              className="w-full h-auto max-h-[80vh] object-contain rounded-lg shadow-2xl"
+              onClick={(e) => e.stopPropagation()} // Evita que el click en la imagen cierre el lightbox
+            />
+
+            {/* Nombre debajo */}
+            <div className="absolute bottom-4 left-0 right-0 text-center">
+              <div className="bg-black bg-opacity-70 inline-block px-6 py-3 rounded-full">
+                <p className="text-white text-xl font-bold">
+                  {resultData.usuario.nombre} {resultData.usuario.apellido}
+                </p>
+                <p className="text-gray-300 text-sm">
+                  DNI: {resultData.usuario.dni}
+                </p>
+              </div>
             </div>
           </div>
         </div>

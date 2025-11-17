@@ -1,20 +1,27 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import * as abonoService from '../../services/abonoService';
+import * as escaneoService from '../../services/escaneoService';
+import QRCode from 'qrcode';
 
 function Dashboard() {
   const { user, logout, updateProfile } = useAuth();
   const navigate = useNavigate();
+  const qrCanvasRef = useRef(null);
 
   // Estados para el abono
   const [abono, setAbono] = useState(null);
   const [loadingAbono, setLoadingAbono] = useState(true);
   
-  // Estados para el historial
+  // Estados para el historial de abonos
   const [historial, setHistorial] = useState([]);
   const [showHistorial, setShowHistorial] = useState(false);
   const [loadingHistorial, setLoadingHistorial] = useState(false);
+
+  // Estados para historial de accesos
+  const [historialAccesos, setHistorialAccesos] = useState([]);
+  const [loadingAccesos, setLoadingAccesos] = useState(true);
 
   // Estados para modal de editar perfil
   const [showEditModal, setShowEditModal] = useState(false);
@@ -26,6 +33,20 @@ function Dashboard() {
   const [previewImage, setPreviewImage] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  // Generar QR cuando se monta el componente
+  useEffect(() => {
+    if (user?.qrCode && qrCanvasRef.current) {
+      QRCode.toCanvas(qrCanvasRef.current, user.qrCode, {
+        width: 140,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      });
+    }
+  }, [user]);
+
   // Cargar abono actual
   useEffect(() => {
     const cargarAbono = async () => {
@@ -34,7 +55,6 @@ function Dashboard() {
         const data = await abonoService.getMiAbono();
         setAbono(data.abono);
       } catch (error) {
-        // Si no tiene abono, es normal, no mostrar error
         if (error.response?.status !== 404) {
           console.error('Error al cargar abono:', error);
         }
@@ -45,6 +65,24 @@ function Dashboard() {
     };
 
     cargarAbono();
+  }, []);
+
+  // Cargar historial de accesos
+  useEffect(() => {
+    const cargarHistorialAccesos = async () => {
+      try {
+        setLoadingAccesos(true);
+        const data = await escaneoService.getMiHistorial(5); // Últimos 5 accesos
+        setHistorialAccesos(data.escaneos || []);
+      } catch (error) {
+        console.error('Error al cargar historial de accesos:', error);
+        setHistorialAccesos([]);
+      } finally {
+        setLoadingAccesos(false);
+      }
+    };
+
+    cargarHistorialAccesos();
   }, []);
 
   // Cargar historial de abonos
@@ -61,13 +99,11 @@ function Dashboard() {
     }
   };
 
-  // Abrir modal de historial
   const handleVerHistorial = async () => {
     setShowHistorial(true);
     await cargarHistorial();
   };
 
-  // Cargar datos del usuario al abrir el modal
   const handleOpenEditModal = () => {
     setFormData({
       email: user?.email || '',
@@ -78,23 +114,19 @@ function Dashboard() {
     setShowEditModal(true);
   };
 
-  // Manejar cambio de imagen
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Validar tamaño (max 2MB)
       if (file.size > 2 * 1024 * 1024) {
         alert('La imagen es muy grande. Máximo 2MB');
         return;
       }
 
-      // Validar tipo
       if (!file.type.startsWith('image/')) {
         alert('El archivo debe ser una imagen');
         return;
       }
 
-      // Convertir a base64
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64String = reader.result;
@@ -105,7 +137,6 @@ function Dashboard() {
     }
   };
 
-  // Guardar cambios del perfil
   const handleSaveProfile = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -131,7 +162,6 @@ function Dashboard() {
     navigate('/login');
   };
 
-  // Formatear fecha
   const formatFecha = (fecha) => {
     return new Date(fecha).toLocaleDateString('es-AR', {
       day: '2-digit',
@@ -140,7 +170,16 @@ function Dashboard() {
     });
   };
 
-  // Formatear precio
+  const formatFechaHora = (fecha) => {
+    return new Date(fecha).toLocaleString('es-AR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
   const formatPrecio = (precio) => {
     return new Intl.NumberFormat('es-AR', {
       style: 'currency',
@@ -148,7 +187,6 @@ function Dashboard() {
     }).format(precio);
   };
 
-  // Calcular días restantes
   const calcularDiasRestantes = (fechaFin) => {
     const hoy = new Date();
     const fin = new Date(fechaFin);
@@ -157,7 +195,6 @@ function Dashboard() {
     return dias > 0 ? dias : 0;
   };
 
-  // Determinar estado del abono
   const obtenerEstadoAbono = (abonoData = abono) => {
     if (!abonoData) {
       return {
@@ -258,24 +295,45 @@ function Dashboard() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <p className="text-sm text-gray-600">DNI</p>
-              <p className="font-semibold">{user?.dni}</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Columna izquierda - Datos */}
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm text-gray-600">DNI</p>
+                <p className="font-semibold">{user?.dni}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Teléfono</p>
+                <p className="font-semibold">{user?.telefono || 'No especificado'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Estado</p>
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                  ✓ Activo
+                </span>
+              </div>
             </div>
-            <div>
-              <p className="text-sm text-gray-600">Teléfono</p>
-              <p className="font-semibold">{user?.telefono || 'No especificado'}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Código QR</p>
-              <p className="font-mono text-sm bg-gray-100 px-2 py-1 rounded">{user?.qrCode}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Estado</p>
-              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                ✓ Activo
-              </span>
+
+            {/* Columna derecha - QR */}
+            <div className="flex flex-col items-center justify-center bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-4 border-2 border-green-200">
+              <p className="text-sm text-gray-700 mb-3 font-semibold">📱 Mi Código QR</p>
+              {user?.qrCode ? (
+                <>
+                  {/* QR Visual */}
+                  <div className="bg-white p-3 rounded-lg shadow-md mb-3">
+                    <canvas ref={qrCanvasRef} />
+                  </div>
+                  
+                  <button
+                    onClick={() => navigate('/usuario/mi-qr')}
+                    className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-xs font-medium shadow-sm"
+                  >
+                    🔍 Ver QR Grande
+                  </button>
+                </>
+              ) : (
+                <p className="text-sm text-gray-500">No generado</p>
+              )}
             </div>
           </div>
         </div>
@@ -410,25 +468,50 @@ function Dashboard() {
 
         {/* Cards de información secundaria */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Card QR */}
+          
+          {/* Card Historial de Accesos */}
           <div className="bg-white rounded-lg shadow p-6">
-            <div className="text-green-500 text-3xl mb-2">📱</div>
-            <h3 className="text-lg font-semibold mb-2">Mi Código QR</h3>
-            <p className="text-gray-600 text-sm mb-4">
-              {user?.qrCode ? 'Usa este código para ingresar a la pileta' : 'No generado'}
-            </p>
-            {user?.qrCode && (
-              <>
-                <div className="bg-gray-50 p-3 rounded mb-3">
-                  <p className="font-mono text-xs break-all">{user.qrCode}</p>
-                </div>
-                <button
-                  onClick={() => navigate('/usuario/mi-qr')}
-                  className="w-full px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition text-sm font-medium"
-                >
-                  Ver QR Completo
-                </button>
-              </>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="text-blue-500 text-3xl">🚪</div>
+                <h3 className="text-lg font-semibold">Historial de Accesos</h3>
+              </div>
+              <button
+                onClick={() => navigate('/usuario/mi-qr')}
+                className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+              >
+                Ver todos →
+              </button>
+            </div>
+
+            {loadingAccesos ? (
+              <div className="text-center py-4">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+                <p className="mt-2 text-sm text-gray-600">Cargando...</p>
+              </div>
+            ) : historialAccesos.length === 0 ? (
+              <div className="text-center py-6">
+                <p className="text-gray-500 text-sm">No hay accesos registrados</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {historialAccesos.map((acceso, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-2 h-2 rounded-full ${acceso.exitoso ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">
+                          {acceso.exitoso ? '✅ Acceso permitido' : '❌ Acceso denegado'}
+                        </p>
+                        <p className="text-xs text-gray-500">{formatFechaHora(acceso.fecha)}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
 

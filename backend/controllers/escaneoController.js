@@ -1,6 +1,6 @@
 const { Escaneo, Usuario, Abono, PruebaSalud } = require('../models');
 
-// @desc    Escanear QR y validar acceso
+// @desc    Escanear código QR y validar acceso
 // @route   POST /api/escaneos/escanear
 // @access  Privado (Admin)
 const escanearQR = async (req, res) => {
@@ -103,29 +103,36 @@ const escanearQR = async (req, res) => {
     });
     
     // Populate para la respuesta
-    await escaneo.populate('usuario', 'nombre apellido dni qrCode');
+    await escaneo.populate('usuario', 'nombre apellido dni qrCode fotoPerfil');
     await escaneo.populate('abono', 'tipoAbono fechaFin');
     await escaneo.populate('escaneadoPor', 'nombre apellido');
+    
+    // 👇 PREPARAR DATOS DEL USUARIO (SIEMPRE INCLUIR ABONO Y PRUEBA SALUD)
+    const usuarioData = {
+      nombre: usuario.nombre,
+      apellido: usuario.apellido,
+      dni: usuario.dni,
+      fotoPerfil: usuario.fotoPerfil,
+      // SIEMPRE incluir info del abono (aunque esté vencido o no pagado)
+      abono: usuario.abonoActual ? {
+        tipo: usuario.abonoActual.tipoAbono,
+        vence: usuario.abonoActual.fechaFin,
+        diasRestantes: Math.ceil((usuario.abonoActual.fechaFin - new Date()) / (1000 * 60 * 60 * 24)),
+        pagado: usuario.abonoActual.pagado
+      } : null,
+      // SIEMPRE incluir info de prueba de salud (aunque esté vencida)
+      pruebaSalud: usuario.pruebaSalud ? {
+        vence: usuario.pruebaSalud.fechaVencimiento,
+        diasRestantes: Math.ceil((usuario.pruebaSalud.fechaVencimiento - new Date()) / (1000 * 60 * 60 * 24))
+      } : null
+    };
     
     if (exitoso) {
       return res.json({
         exitoso: true,
         message: '✅ Acceso permitido',
         escaneo,
-        usuario: {
-          nombre: usuario.nombre,
-          apellido: usuario.apellido,
-          dni: usuario.dni,
-          abono: usuario.abonoActual ? {
-            tipo: usuario.abonoActual.tipoAbono,
-            vence: usuario.abonoActual.fechaFin,
-            diasRestantes: Math.ceil((usuario.abonoActual.fechaFin - new Date()) / (1000 * 60 * 60 * 24))
-          } : null,
-          pruebaSalud: usuario.pruebaSalud ? {
-            vence: usuario.pruebaSalud.fechaVencimiento,
-            diasRestantes: Math.ceil((usuario.pruebaSalud.fechaVencimiento - new Date()) / (1000 * 60 * 60 * 24))
-          } : null
-        }
+        usuario: usuarioData
       });
     } else {
       return res.status(403).json({
@@ -133,11 +140,7 @@ const escanearQR = async (req, res) => {
         message: escaneo.motivoLegible,
         motivoRechazo,
         escaneo,
-        usuario: {
-          nombre: usuario.nombre,
-          apellido: usuario.apellido,
-          dni: usuario.dni
-        }
+        usuario: usuarioData  // 👈 TAMBIÉN incluir en caso de rechazo
       });
     }
     
