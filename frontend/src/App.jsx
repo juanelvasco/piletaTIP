@@ -16,6 +16,8 @@ import AdminDashboard from './pages/admin/dashboard';
 import Usuarios from './pages/admin/Usuarios';
 import Abonos from './pages/admin/abonos';
 import EscanearQR from './pages/admin/EscanearQR';
+import Reportes from './pages/admin/Reportes';
+
 
 // Páginas de enfermero
 import EnfermeroDashboard from './pages/enfermero/Dashboard';
@@ -86,6 +88,15 @@ function App() {
             element={
               <ProtectedRoute adminOnly={true}>
                 <EscanearQR />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/reportes"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <Reportes />
               </ProtectedRoute>
             }
           />
