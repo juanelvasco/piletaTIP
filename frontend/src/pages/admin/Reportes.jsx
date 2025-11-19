@@ -17,8 +17,8 @@ function Reportes() {
     totalPaginas: 0
   });
   const [filtros, setFiltros] = useState({
-    fechaInicio: new Date().toISOString().split('T')[0], // Hoy
-    fechaFin: new Date().toISOString().split('T')[0],    // Hoy
+    fechaInicio: '',
+    fechaFin: '',
     exitoso: '',
     search: ''
   });
@@ -385,7 +385,15 @@ function Reportes() {
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <span className="text-gray-500">-</span>
+                        {escaneo.usuario?.pruebaSalud ? (
+                          escaneo.usuario.pruebaSalud.vigente ? (
+                            <span className="text-green-600">✓ Vigente</span>
+                          ) : (
+                            <span className="text-red-600">✗ Vencido</span>
+                          )
+                        ) : (
+                          <span className="text-gray-500">✗ Sin apto</span>
+                        )}
                       </td>
                       <td className="px-6 py-4 text-sm">
                         {escaneo.motivoRechazo ? (

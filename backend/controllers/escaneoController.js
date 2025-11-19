@@ -162,7 +162,8 @@ const obtenerEscaneos = async (req, res) => {
       page = 1,
       limit = 20,
       exitoso,
-      fecha,
+      fechaInicio,
+      fechaFin,
       search
     } = req.query;
     
@@ -173,18 +174,23 @@ const obtenerEscaneos = async (req, res) => {
       filtros.exitoso = exitoso === 'true';
     }
     
-    // Filtrar por fecha (día específico)
-    if (fecha) {
-      const inicioDia = new Date(fecha);
-      inicioDia.setHours(0, 0, 0, 0);
+    // Filtrar por rango de fechas
+    if (fechaInicio || fechaFin) {
+      filtros.fechaHora = {};
       
-      const finDia = new Date(fecha);
-      finDia.setHours(23, 59, 59, 999);
+      if (fechaInicio) {
+        // Crear fecha en formato UTC para evitar problemas de zona horaria
+        const [year, month, day] = fechaInicio.split('-');
+        const inicio = new Date(Date.UTC(parseInt(year), parseInt(month) - 1, parseInt(day), 0, 0, 0, 0));
+        filtros.fechaHora.$gte = inicio;
+      }
       
-      filtros.fechaHora = {
-        $gte: inicioDia,
-        $lte: finDia
-      };
+      if (fechaFin) {
+        // Crear fecha en formato UTC para evitar problemas de zona horaria
+        const [year, month, day] = fechaFin.split('-');
+        const fin = new Date(Date.UTC(parseInt(year), parseInt(month) - 1, parseInt(day), 23, 59, 59, 999));
+        filtros.fechaHora.$lte = fin;
+      }
     }
     
     // Búsqueda por usuario
@@ -203,7 +209,15 @@ const obtenerEscaneos = async (req, res) => {
     const skip = (parseInt(page) - 1) * parseInt(limit);
     
     const escaneos = await Escaneo.find(filtros)
-      .populate('usuario', 'nombre apellido dni')
+      .populate({
+        path: 'usuario',
+        select: 'nombre apellido dni',
+        populate: {
+          path: 'pruebaSalud',
+          select: 'fechaVencimiento vigente'
+        }
+      })
+      .populate('abono', 'tipoAbono fechaFin')
       .populate('escaneadoPor', 'nombre apellido')
       .sort({ fechaHora: -1 })
       .skip(skip)
@@ -314,9 +328,22 @@ const obtenerMiHistorial = async (req, res) => {
 // @access  Privado (Admin)
 const obtenerEscaneosHoy = async (req, res) => {
   try {
-    const escaneos = await Escaneo.accesosDia();
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
     
-    // Calcular estadísticas del día
+    const manana = new Date(hoy);
+    manana.setDate(manana.getDate() + 1);
+    
+    const escaneos = await Escaneo.find({
+      fechaHora: {
+        $gte: hoy,
+        $lt: manana
+      }
+    })
+    .populate('usuario', 'nombre apellido dni')
+    .populate('escaneadoPor', 'nombre apellido')
+    .sort({ fechaHora: -1 });
+    
     const exitosos = escaneos.filter(e => e.exitoso).length;
     const rechazados = escaneos.filter(e => !e.exitoso).length;
     
@@ -324,9 +351,6 @@ const obtenerEscaneosHoy = async (req, res) => {
       total: escaneos.length,
       exitosos,
       rechazados,
-      porcentajeExito: escaneos.length > 0 
-        ? ((exitosos / escaneos.length) * 100).toFixed(2)
-        : 0,
       escaneos
     });
     
@@ -346,12 +370,38 @@ const obtenerEstadisticas = async (req, res) => {
   try {
     const { fechaInicio, fechaFin } = req.query;
     
-    const estadisticas = await Escaneo.obtenerEstadisticas({
-      fechaInicio,
-      fechaFin
-    });
+    const filtros = {};
     
-    res.json(estadisticas);
+    if (fechaInicio || fechaFin) {
+      filtros.fechaHora = {};
+      if (fechaInicio) {
+        const [year, month, day] = fechaInicio.split('-');
+        filtros.fechaHora.$gte = new Date(Date.UTC(parseInt(year), parseInt(month) - 1, parseInt(day), 0, 0, 0, 0));
+      }
+      if (fechaFin) {
+        const [year, month, day] = fechaFin.split('-');
+        filtros.fechaHora.$lte = new Date(Date.UTC(parseInt(year), parseInt(month) - 1, parseInt(day), 23, 59, 59, 999));
+      }
+    }
+    
+    const total = await Escaneo.countDocuments(filtros);
+    const exitosos = await Escaneo.countDocuments({ ...filtros, exitoso: true });
+    const rechazados = await Escaneo.countDocuments({ ...filtros, exitoso: false });
+    
+    // Contar por motivos de rechazo
+    const motivosRechazo = await Escaneo.aggregate([
+      { $match: { ...filtros, exitoso: false } },
+      { $group: { _id: '$motivoRechazo', count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]);
+    
+    res.json({
+      total,
+      exitosos,
+      rechazados,
+      tasaExito: total > 0 ? ((exitosos / total) * 100).toFixed(2) : 0,
+      motivosRechazo
+    });
     
   } catch (error) {
     console.error('Error en obtenerEstadisticas:', error);
@@ -362,26 +412,44 @@ const obtenerEstadisticas = async (req, res) => {
   }
 };
 
-// @desc    Obtener rechazos por motivo
+// @desc    Obtener reporte de rechazos por motivo
 // @route   GET /api/escaneos/reportes/rechazos
 // @access  Privado (Admin)
 const obtenerReporteRechazos = async (req, res) => {
   try {
     const { fechaInicio, fechaFin } = req.query;
     
-    if (!fechaInicio || !fechaFin) {
-      return res.status(400).json({ 
-        message: 'Se requieren fechaInicio y fechaFin' 
-      });
+    const filtros = { exitoso: false };
+    
+    if (fechaInicio || fechaFin) {
+      filtros.fechaHora = {};
+      if (fechaInicio) {
+        const [year, month, day] = fechaInicio.split('-');
+        filtros.fechaHora.$gte = new Date(Date.UTC(parseInt(year), parseInt(month) - 1, parseInt(day), 0, 0, 0, 0));
+      }
+      if (fechaFin) {
+        const [year, month, day] = fechaFin.split('-');
+        filtros.fechaHora.$lte = new Date(Date.UTC(parseInt(year), parseInt(month) - 1, parseInt(day), 23, 59, 59, 999));
+      }
     }
     
-    const rechazos = await Escaneo.rechazosPorMotivo(fechaInicio, fechaFin);
+    const rechazos = await Escaneo.find(filtros)
+      .populate('usuario', 'nombre apellido dni')
+      .sort({ fechaHora: -1 });
+    
+    // Agrupar por motivo
+    const porMotivo = {};
+    rechazos.forEach(rechazo => {
+      const motivo = rechazo.motivoRechazo || 'sin_motivo';
+      if (!porMotivo[motivo]) {
+        porMotivo[motivo] = [];
+      }
+      porMotivo[motivo].push(rechazo);
+    });
     
     res.json({
-      periodo: {
-        desde: fechaInicio,
-        hasta: fechaFin
-      },
+      total: rechazos.length,
+      porMotivo,
       rechazos
     });
     
@@ -389,6 +457,67 @@ const obtenerReporteRechazos = async (req, res) => {
     console.error('Error en obtenerReporteRechazos:', error);
     res.status(500).json({ 
       message: 'Error al obtener reporte de rechazos',
+      error: error.message 
+    });
+  }
+};
+
+// @desc    Rechazar escaneo manualmente
+// @route   PUT /api/escaneos/:id/rechazar
+// @access  Privado (Admin)
+const rechazarEscaneoManual = async (req, res) => {
+  try {
+    const { motivoRechazoManual } = req.body;
+    
+    if (!motivoRechazoManual || !motivoRechazoManual.trim()) {
+      return res.status(400).json({ 
+        message: 'El motivo del rechazo es obligatorio' 
+      });
+    }
+    
+    const escaneo = await Escaneo.findById(req.params.id);
+    
+    if (!escaneo) {
+      return res.status(404).json({ 
+        message: 'Escaneo no encontrado' 
+      });
+    }
+    
+    if (!escaneo.exitoso) {
+      return res.status(400).json({ 
+        message: 'Este escaneo ya está rechazado' 
+      });
+    }
+    
+    if (escaneo.rechazadoManualmente) {
+      return res.status(400).json({ 
+        message: 'Este escaneo ya fue modificado manualmente' 
+      });
+    }
+    
+    // Actualizar el escaneo
+    escaneo.exitoso = false;
+    escaneo.motivoRechazo = 'rechazo_manual';
+    escaneo.motivoRechazoManual = motivoRechazoManual.trim();
+    escaneo.rechazadoManualmente = true;
+    escaneo.rechazadoPor = req.userId;
+    escaneo.fechaRechazoManual = new Date();
+    
+    await escaneo.save();
+    
+    // Populate para la respuesta
+    await escaneo.populate('usuario', 'nombre apellido dni');
+    await escaneo.populate('rechazadoPor', 'nombre apellido');
+    
+    res.json({
+      message: 'Escaneo modificado exitosamente',
+      escaneo
+    });
+    
+  } catch (error) {
+    console.error('Error en rechazarEscaneoManual:', error);
+    res.status(500).json({ 
+      message: 'Error al rechazar escaneo',
       error: error.message 
     });
   }
@@ -402,5 +531,6 @@ module.exports = {
   obtenerMiHistorial,
   obtenerEscaneosHoy,
   obtenerEstadisticas,
-  obtenerReporteRechazos
+  obtenerReporteRechazos,
+  rechazarEscaneoManual
 };

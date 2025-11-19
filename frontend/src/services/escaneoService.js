@@ -64,3 +64,11 @@ export const getReporteRechazos = async (fechaInicio, fechaFin) => {
   });
   return response.data;
 };
+
+// Rechazar escaneo manualmente (Admin)
+export const rechazarEscaneo = async (escaneoId, motivoRechazoManual) => {
+  const response = await api.put(`/escaneos/${escaneoId}/rechazar`, {
+    motivoRechazoManual
+  });
+  return response.data;
+};

@@ -8,7 +8,8 @@ const {
   obtenerMiHistorial,
   obtenerEscaneosHoy,
   obtenerEstadisticas,
-  obtenerReporteRechazos
+  obtenerReporteRechazos,
+  rechazarEscaneoManual
 } = require('../controllers/escaneoController');
 const { verificarToken, verificarAdmin } = require('../middleware/auth');
 
@@ -59,5 +60,10 @@ router.get('/', verificarToken, verificarAdmin, obtenerEscaneos);
 // @desc    Obtener escaneo por ID
 // @access  Privado (Admin)
 router.get('/:id', verificarToken, verificarAdmin, obtenerEscaneoPorId);
+
+// @route   PUT /api/escaneos/:id/rechazar
+// @desc    Rechazar escaneo manualmente
+// @access  Privado (Admin)
+router.put('/:id/rechazar', verificarToken, verificarAdmin, rechazarEscaneoManual);
 
 module.exports = router;

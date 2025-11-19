@@ -35,7 +35,8 @@ const escaneoSchema = new mongoose.Schema({
         'usuario_inactivo',
         'prueba_salud_vencida',
         'sin_prueba_salud',
-        'qr_invalido'
+        'qr_invalido',
+        'rechazo_manual'
       ],
       message: '{VALUE} no es un motivo válido'
     },
@@ -63,6 +64,26 @@ const escaneoSchema = new mongoose.Schema({
   notas: {
     type: String,
     trim: true
+  },
+  
+  // Campos para rechazo manual
+  rechazadoManualmente: {
+    type: Boolean,
+    default: false
+  },
+  motivoRechazoManual: {
+    type: String,
+    trim: true,
+    default: null
+  },
+  rechazadoPor: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Usuario',
+    default: null
+  },
+  fechaRechazoManual: {
+    type: Date,
+    default: null
   }
 }, {
   timestamps: true // Solo createdAt (no necesitamos updatedAt)
@@ -80,7 +101,8 @@ escaneoSchema.virtual('motivoLegible').get(function() {
     'usuario_inactivo': 'El usuario está inactivo en el sistema',
     'prueba_salud_vencida': 'La prueba de salud ha vencido',
     'sin_prueba_salud': 'El usuario no tiene prueba de salud registrada',
-    'qr_invalido': 'El código QR es inválido o no existe'
+    'qr_invalido': 'El código QR es inválido o no existe',
+    'rechazo_manual': 'Rechazado manualmente por el administrador'
   };
   
   return motivos[this.motivoRechazo] || 'Motivo desconocido';
