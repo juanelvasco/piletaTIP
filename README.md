@@ -1,4 +1,4 @@
-# 🏊‍♂️ Sistema de Gestión de Natatorios
+# 🏊‍♂️ Sistema de Gestión de Piletas
 
 Sistema completo de gestión y control de acceso para piletas públicas y natatorios desarrollado con stack MERN (MongoDB, Express, React, Node.js). Incluye control de acceso por código QR, gestión de abonos, administración de usuarios, control de certificados médicos de aptitud física y reportes detallados.
 
@@ -374,18 +374,16 @@ VITE_API_URL=http://192.168.1.X:5000/api
 - [ ] Backup automático de base de datos
 - [ ] Registro de temperatura del agua y mantenimiento
 
-## 🤝 Contribuciones
+---
 
-Este es un proyecto en desarrollo activo. Las contribuciones son bienvenidas.
+## 👨‍💻 Autor
 
-## 📝 Licencia
-
-Este proyecto está bajo la Licencia MIT.
-
-## 📞 Soporte
-
-Para reportar bugs o solicitar funcionalidades, por favor crear un issue en el repositorio.
+**Juan Hiribarren**
+- GitHub: [@juanelvasco](https://github.com/juanelvasco)
+- Proyecto: [piletaTIP](https://github.com/juanelvasco/piletaTIP)
 
 ---
 
-**Desarrollado con ❤️ usando MERN Stack**
+
+*Última actualización: Noviembre 2025*
+
