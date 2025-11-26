@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Link } from 'react-router-dom';
 import api from '../../services/api';
@@ -11,32 +11,39 @@ function EnfermeroDashboard() {
     pruebasProximasVencer: 0
   });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    cargarEstadisticas();
-  }, []);
-
-  const cargarEstadisticas = async () => {
+  const cargarEstadisticas = useCallback(async () => {
     try {
       setLoading(true);
+      setError(null);
       
-      // Cargar estadísticas de usuarios
-      const resUsuarios = await api.get('/users/estadisticas');
-      
-      // Cargar estadísticas de salud
-      const resSalud = await api.get('/salud/estadisticas');
+      const [resUsuarios, resSalud] = await Promise.all([
+        api.get('/users/estadisticas'),
+        api.get('/salud/estadisticas')
+      ]);
       
       setStats({
-        totalUsuarios: resUsuarios.data.total,
-        pruebasSaludVigentes: resSalud.data.vigentes,
-        pruebasProximasVencer: resSalud.data.alertas
+        totalUsuarios: resUsuarios.data.total || 0,
+        pruebasSaludVigentes: resSalud.data.vigentes || 0,
+        pruebasProximasVencer: resSalud.data.alertasPendientes || 0
       });
     } catch (error) {
       console.error('Error al cargar estadísticas:', error);
+      setError('Error al cargar las estadísticas');
+      setStats({
+        totalUsuarios: 0,
+        pruebasSaludVigentes: 0,
+        pruebasProximasVencer: 0
+      });
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    cargarEstadisticas();
+  }, [cargarEstadisticas]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
@@ -81,6 +88,13 @@ function EnfermeroDashboard() {
             Panel de control para gestión de aptos médicos
           </p>
         </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+            <p className="text-red-800 font-medium">{error}</p>
+          </div>
+        )}
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -172,7 +186,16 @@ function EnfermeroDashboard() {
             disabled={loading}
             className="px-6 py-3 bg-white border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium shadow-sm"
           >
-            {loading ? '🔄 Actualizando...' : '🔄 Actualizar Estadísticas'}
+            {loading ? (
+              <>
+                <span className="inline-block animate-spin mr-2">⚙️</span>
+                Cargando...
+              </>
+            ) : (
+              <>
+                🔄 Actualizar Estadísticas
+              </>
+            )}
           </button>
         </div>
       </main>
@@ -181,3 +204,5 @@ function EnfermeroDashboard() {
 }
 
 export default EnfermeroDashboard;
+
+

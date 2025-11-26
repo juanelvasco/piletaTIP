@@ -1,84 +1,98 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import api from '../../services/api';
+import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '../../context/AuthContext';
+import { Link, useNavigate } from 'react-router-dom';
+import * as userService from '../../services/userService';
 
 function EnfermeroUsuarios() {
+  const { user: usuario, logout } = useAuth();
+  const navigate = useNavigate();
+
   const [usuarios, setUsuarios] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [busqueda, setBusqueda] = useState('');
-  const [filtroApto, setFiltroApto] = useState('todos'); // todos, conApto, sinApto
+  const [filtroApto, setFiltroApto] = useState('todos');
 
-  useEffect(() => {
-    cargarUsuarios();
-  }, []);
-
-  const cargarUsuarios = async () => {
+  const cargarUsuarios = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await api.get('/users', {
-        params: {
-          limit: 1000,
-          activo: true
-        }
+      setError(null);
+      const data = await userService.getUsers({
+        page: 1,
+        limit: 1000
       });
-      setUsuarios(response.data.usuarios);
+      setUsuarios(data.usuarios || []);
     } catch (error) {
       console.error('Error al cargar usuarios:', error);
-      alert('Error al cargar la lista de usuarios');
+      setError('Error al cargar los usuarios');
+      setUsuarios([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const usuariosFiltrados = usuarios.filter(usuario => {
-    // Filtro de búsqueda
-    const coincideBusqueda = 
-      usuario.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
-      usuario.apellido.toLowerCase().includes(busqueda.toLowerCase()) ||
-      usuario.dni.includes(busqueda) ||
-      usuario.email.toLowerCase().includes(busqueda.toLowerCase());
-
-    if (!coincideBusqueda) return false;
-
-    // Filtro de apto
-    if (filtroApto === 'conApto') {
-      return usuario.pruebaSalud !== null;
-    } else if (filtroApto === 'sinApto') {
-      return usuario.pruebaSalud === null;
-    }
-
-    return true; // 'todos'
-  });
-
-  const formatearFecha = (fecha) => {
-    if (!fecha) return '-';
-    return new Date(fecha).toLocaleDateString('es-AR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
-  };
-
-  const calcularDiasRestantes = (fechaVencimiento) => {
-    if (!fechaVencimiento) return null;
-    
-    const hoy = new Date();
-    const vencimiento = new Date(fechaVencimiento);
-    const diferencia = vencimiento - hoy;
-    const dias = Math.ceil(diferencia / (1000 * 60 * 60 * 24));
-    
-    return dias;
-  };
+  useEffect(() => {
+    cargarUsuarios();
+  }, [cargarUsuarios]);
 
   const obtenerEstadoApto = (usuario) => {
     if (!usuario.pruebaSalud) {
-      return { texto: 'Sin apto', color: 'bg-red-100 text-red-800', icono: '❌' };
+      return {
+        texto: 'Sin Apto',
+        color: 'bg-red-100 text-red-800',
+        icono: '❌'
+      };
     }
 
-    // Si tiene prueba de salud, necesitamos verificar su estado
-    // Como no tenemos los detalles completos aquí, solo mostramos si tiene o no
-    return { texto: 'Con apto', color: 'bg-green-100 text-green-800', icono: '✅' };
+    const fechaVencimiento = new Date(usuario.pruebaSalud.fechaVencimiento);
+    const hoy = new Date();
+    const diasRestantes = Math.ceil((fechaVencimiento - hoy) / (1000 * 60 * 60 * 24));
+
+    if (diasRestantes < 0) {
+      return {
+        texto: 'Vencido',
+        color: 'bg-red-100 text-red-800',
+        icono: '❌'
+      };
+    }
+
+    if (diasRestantes <= 7) {
+      return {
+        texto: 'Por vencer',
+        color: 'bg-orange-100 text-orange-800',
+        icono: '⚠️'
+      };
+    }
+
+    if (diasRestantes <= 30) {
+      return {
+        texto: 'Próximo a vencer',
+        color: 'bg-yellow-100 text-yellow-800',
+        icono: '⏰'
+      };
+    }
+
+    return {
+      texto: 'Vigente',
+      color: 'bg-green-100 text-green-800',
+      icono: '✅'
+    };
   };
+
+  const usuariosFiltrados = usuarios.filter(usuario => {
+    const matchBusqueda = busqueda === '' ||
+      usuario.nombre?.toLowerCase().includes(busqueda.toLowerCase()) ||
+      usuario.apellido?.toLowerCase().includes(busqueda.toLowerCase()) ||
+      usuario.dni?.includes(busqueda) ||
+      usuario.email?.toLowerCase().includes(busqueda.toLowerCase());
+
+    const matchFiltro = 
+      filtroApto === 'todos' ||
+      (filtroApto === 'conApto' && usuario.pruebaSalud) ||
+      (filtroApto === 'sinApto' && !usuario.pruebaSalud);
+
+    return matchBusqueda && matchFiltro;
+  });
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
@@ -86,28 +100,65 @@ function EnfermeroUsuarios() {
       <nav className="bg-white shadow-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <Link to="/enfermero/dashboard" className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-green-500 rounded-lg flex items-center justify-center">
-                <span className="text-white text-xl">←</span>
-              </div>
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() => navigate('/enfermero/dashboard')}
+                className="w-10 h-10 bg-gradient-to-br from-green-400 to-blue-500 rounded-lg flex items-center justify-center hover:opacity-80 transition"
+              >
+                <span className="text-white text-xl font-bold">←</span>
+              </button>
               <div>
-                <h1 className="text-xl font-bold text-gray-800">Lista de Usuarios</h1>
-                <p className="text-xs text-gray-500">Consulta de pacientes</p>
+                <h1 className="text-xl font-bold text-gray-800">Usuarios</h1>
+                <p className="text-xs text-gray-500">Panel Enfermero</p>
               </div>
-            </Link>
+            </div>
+            
+            <div className="flex items-center space-x-4">
+              <div className="text-right hidden sm:block">
+                <p className="text-sm font-medium text-gray-700">{usuario?.nombre} {usuario?.apellido}</p>
+                <p className="text-xs text-gray-500 capitalize">{usuario?.rol}</p>
+              </div>
+              <button
+                onClick={logout}
+                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors text-sm font-medium"
+              >
+                Salir
+              </button>
+            </div>
           </div>
         </div>
       </nav>
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Filters Bar */}
-        <div className="mb-6 space-y-4">
-          {/* Search */}
-          <div className="relative">
+        <div className="mb-8">
+          <h2 className="text-3xl font-bold text-gray-800 mb-2">
+            Lista de Usuarios 📋
+          </h2>
+          <p className="text-gray-600">
+            Visualiza y gestiona el estado de los aptos médicos
+          </p>
+        </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+            <p className="text-red-800 font-medium">{error}</p>
+            <button
+              onClick={cargarUsuarios}
+              className="mt-2 text-red-600 hover:text-red-800 text-sm font-medium"
+            >
+              Reintentar
+            </button>
+          </div>
+        )}
+
+        {/* Search and Filters */}
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <div className="relative mb-4">
             <input
               type="text"
-              placeholder="🔍 Buscar por nombre, apellido, DNI o email..."
+              placeholder="Buscar por nombre, apellido, DNI o email..."
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               className="w-full px-4 py-3 pl-12 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -213,7 +264,7 @@ function EnfermeroUsuarios() {
                                   />
                                 ) : (
                                   <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-400 to-green-500 flex items-center justify-center text-white font-bold">
-                                    {usuario.nombre.charAt(0)}{usuario.apellido.charAt(0)}
+                                    {usuario.nombre?.charAt(0)}{usuario.apellido?.charAt(0)}
                                   </div>
                                 )}
                               </div>

@@ -9,7 +9,7 @@ const verificarToken = async (req, res, next) => {
     
     if (!token) {
       return res.status(401).json({ 
-        message: 'Acceso denegado. No se proporcionó token de autenticación.' 
+        message: 'Acceso denegado. porcionó token de autenticación.' 
       });
     }
     

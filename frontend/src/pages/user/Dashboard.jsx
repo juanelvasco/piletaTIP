@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import * as abonoService from '../../services/abonoService';
 import * as escaneoService from '../../services/escaneoService';
+import api from '../../services/api';
 import QRCode from 'qrcode';
 
 function Dashboard() {
@@ -10,20 +11,15 @@ function Dashboard() {
   const navigate = useNavigate();
   const qrCanvasRef = useRef(null);
 
-  // Estados para el abono
   const [abono, setAbono] = useState(null);
   const [loadingAbono, setLoadingAbono] = useState(true);
-  
-  // Estados para el historial de abonos
   const [historial, setHistorial] = useState([]);
   const [showHistorial, setShowHistorial] = useState(false);
   const [loadingHistorial, setLoadingHistorial] = useState(false);
-
-  // Estados para historial de accesos
   const [historialAccesos, setHistorialAccesos] = useState([]);
   const [loadingAccesos, setLoadingAccesos] = useState(true);
-
-  // Estados para modal de editar perfil
+  const [pruebaSalud, setPruebaSalud] = useState(null);
+  const [loadingPruebaSalud, setLoadingPruebaSalud] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
@@ -33,7 +29,6 @@ function Dashboard() {
   const [previewImage, setPreviewImage] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // Generar QR cuando se monta el componente
   useEffect(() => {
     if (user?.qrCode && qrCanvasRef.current) {
       QRCode.toCanvas(qrCanvasRef.current, user.qrCode, {
@@ -45,47 +40,63 @@ function Dashboard() {
         }
       });
     }
-  }, [user]);
+  }, [user?.qrCode]);
 
-  // Cargar abono actual
-  useEffect(() => {
-    const cargarAbono = async () => {
-      try {
-        setLoadingAbono(true);
-        const data = await abonoService.getMiAbono();
-        setAbono(data.abono);
-      } catch (error) {
-        if (error.response?.status !== 404) {
-          console.error('Error al cargar abono:', error);
-        }
-        setAbono(null);
-      } finally {
-        setLoadingAbono(false);
+  const cargarAbono = useCallback(async () => {
+    try {
+      setLoadingAbono(true);
+      const data = await abonoService.getMiAbono();
+      setAbono(data.abono);
+    } catch (error) {
+      if (error.response?.status !== 404) {
+        console.error('Error al cargar abono:', error);
       }
-    };
+      setAbono(null);
+    } finally {
+      setLoadingAbono(false);
+    }
+  }, []);
 
+  useEffect(() => {
     cargarAbono();
-  }, []);
+  }, [cargarAbono]);
 
-  // Cargar historial de accesos
-  useEffect(() => {
-    const cargarHistorialAccesos = async () => {
-      try {
-        setLoadingAccesos(true);
-        const data = await escaneoService.getMiHistorial(5); // Últimos 5 accesos
-        setHistorialAccesos(data.escaneos || []);
-      } catch (error) {
-        console.error('Error al cargar historial de accesos:', error);
-        setHistorialAccesos([]);
-      } finally {
-        setLoadingAccesos(false);
+  const cargarPruebaSalud = useCallback(async () => {
+    try {
+      setLoadingPruebaSalud(true);
+      const response = await api.get('/salud/mi-prueba');
+      setPruebaSalud(response.data.prueba);
+    } catch (error) {
+      if (error.response?.status !== 404) {
+        console.error('Error al cargar prueba de salud:', error);
       }
-    };
-
-    cargarHistorialAccesos();
+      setPruebaSalud(null);
+    } finally {
+      setLoadingPruebaSalud(false);
+    }
   }, []);
 
-  // Cargar historial de abonos
+  useEffect(() => {
+    cargarPruebaSalud();
+  }, [cargarPruebaSalud]);
+
+  const cargarHistorialAccesos = useCallback(async () => {
+    try {
+      setLoadingAccesos(true);
+      const data = await escaneoService.getMiHistorial(5);
+      setHistorialAccesos(data.escaneos || []);
+    } catch (error) {
+      console.error('Error al cargar historial de accesos:', error);
+      setHistorialAccesos([]);
+    } finally {
+      setLoadingAccesos(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    cargarHistorialAccesos();
+  }, [cargarHistorialAccesos]);
+
   const cargarHistorial = async () => {
     try {
       setLoadingHistorial(true);
@@ -245,11 +256,53 @@ function Dashboard() {
     };
   };
 
+  const obtenerEstadoPruebaSalud = () => {
+    if (!pruebaSalud) {
+      return {
+        texto: 'Sin registrar',
+        color: 'bg-gray-100 text-gray-800',
+        detalle: 'No tienes un apto médico registrado'
+      };
+    }
+
+    if (!pruebaSalud.vigente) {
+      return {
+        texto: 'Vencido',
+        color: 'bg-red-100 text-red-800',
+        detalle: `Venció el ${formatFecha(pruebaSalud.fechaVencimiento)}`
+      };
+    }
+
+    const diasRestantes = calcularDiasRestantes(pruebaSalud.fechaVencimiento);
+
+    if (diasRestantes <= 3) {
+      return {
+        texto: 'Por vencer',
+        color: 'bg-orange-100 text-orange-800',
+        detalle: `Quedan ${diasRestantes} días`
+      };
+    }
+
+    if (diasRestantes <= 7) {
+      return {
+        texto: 'Próximo a vencer',
+        color: 'bg-yellow-100 text-yellow-800',
+        detalle: `Quedan ${diasRestantes} días`
+      };
+    }
+
+    return {
+      texto: 'Vigente',
+      color: 'bg-green-100 text-green-800',
+      detalle: `Válido hasta ${formatFecha(pruebaSalud.fechaVencimiento)}`
+    };
+  };
+
   const estadoAbono = obtenerEstadoAbono();
+  const estadoPruebaSalud = obtenerEstadoPruebaSalud();
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 py-6 flex justify-between items-center">
           <div>
@@ -267,9 +320,7 @@ function Dashboard() {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-8">
-        {/* Tarjeta de perfil */}
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <div className="flex items-start justify-between mb-6">
             <h2 className="text-xl font-semibold">Mi Perfil</h2>
@@ -296,7 +347,6 @@ function Dashboard() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Columna izquierda - Datos */}
             <div className="space-y-4">
               <div>
                 <p className="text-sm text-gray-600">DNI</p>
@@ -314,12 +364,10 @@ function Dashboard() {
               </div>
             </div>
 
-            {/* Columna derecha - QR */}
             <div className="flex flex-col items-center justify-center bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-4 border-2 border-green-200">
               <p className="text-sm text-gray-700 mb-3 font-semibold">📱 Mi Código QR</p>
               {user?.qrCode ? (
                 <>
-                  {/* QR Visual */}
                   <div className="bg-white p-3 rounded-lg shadow-md mb-3">
                     <canvas ref={qrCanvasRef} />
                   </div>
@@ -338,7 +386,6 @@ function Dashboard() {
           </div>
         </div>
 
-        {/* Card de Abono - Destacada */}
         <div className="bg-white rounded-lg shadow-lg p-6 mb-6 border-2 border-blue-500">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-2xl font-bold text-gray-900">💳 Mi Abono</h2>
@@ -364,7 +411,6 @@ function Dashboard() {
             </div>
           ) : abono ? (
             <div className="space-y-4">
-              {/* Información principal */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-blue-50 p-4 rounded-lg">
                   <p className="text-sm text-blue-600 font-medium mb-1">Tipo de Abono</p>
@@ -384,8 +430,7 @@ function Dashboard() {
                 </div>
               </div>
 
-              {/* Fechas */}
-              <div className="border-t pt-4">
+              <div className="bg-gray-50 rounded-lg p-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-gray-600 mb-1">Fecha de Inicio</p>
@@ -395,29 +440,18 @@ function Dashboard() {
                     <p className="text-sm text-gray-600 mb-1">Fecha de Vencimiento</p>
                     <p className="font-semibold text-gray-900">{formatFecha(abono.fechaFin)}</p>
                   </div>
-                </div>
-              </div>
-
-              {/* Estado de pago */}
-              <div className="border-t pt-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-gray-600 mb-1">Estado de Pago</p>
-                    {abono.pagado ? (
-                      <div>
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                          ✓ Pagado
-                        </span>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {abono.metodoPago && `Método: ${abono.metodoPago}`}
-                        </p>
-                      </div>
-                    ) : (
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                        ⏳ Pendiente
-                      </span>
-                    )}
+                    <p className={`font-semibold ${abono.pagado ? 'text-green-600' : 'text-yellow-600'}`}>
+                      {abono.pagado ? '✓ Pagado' : '⏳ Pendiente'}
+                    </p>
                   </div>
+                  {abono.metodoPago && abono.metodoPago !== 'pendiente' && (
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Método de Pago</p>
+                      <p className="font-semibold text-gray-900 capitalize">{abono.metodoPago}</p>
+                    </div>
+                  )}
                   {abono.pagado && abono.fechaPago && (
                     <div>
                       <p className="text-sm text-gray-600 mb-1">Fecha de Pago</p>
@@ -427,7 +461,6 @@ function Dashboard() {
                 </div>
               </div>
 
-              {/* Alertas */}
               {abono.pagado && calcularDiasRestantes(abono.fechaFin) <= 7 && calcularDiasRestantes(abono.fechaFin) > 0 && (
                 <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
                   <p className="text-orange-800 font-semibold flex items-center gap-2">
@@ -466,10 +499,7 @@ function Dashboard() {
           )}
         </div>
 
-        {/* Cards de información secundaria */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          
-          {/* Card Historial de Accesos */}
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
@@ -515,21 +545,65 @@ function Dashboard() {
             )}
           </div>
 
-          {/* Card Salud */}
           <div className="bg-white rounded-lg shadow p-6">
-            <div className="text-purple-500 text-3xl mb-2">🏥</div>
-            <h3 className="text-lg font-semibold mb-2">Prueba de Salud</h3>
-            <p className="text-gray-600 text-sm">
-              {user?.pruebaSalud ? 'Vigente' : 'Sin registrar'}
-            </p>
-            <p className="text-xs text-gray-500 mt-2">
-              La prueba de salud es requerida para acceder a la pileta
-            </p>
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="text-purple-500 text-3xl">🏥</div>
+                <h3 className="text-lg font-semibold">Apto Médico</h3>
+              </div>
+              {!loadingPruebaSalud && (
+                <span className={`px-3 py-1 rounded-full text-xs font-medium ${estadoPruebaSalud.color}`}>
+                  {estadoPruebaSalud.texto}
+                </span>
+              )}
+            </div>
+
+            {loadingPruebaSalud ? (
+              <div className="text-center py-4">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 mx-auto"></div>
+                <p className="mt-2 text-sm text-gray-600">Cargando...</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-gray-700 text-sm">
+                  {estadoPruebaSalud.detalle}
+                </p>
+                
+                {pruebaSalud && (
+                  <>
+                    <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+                      <div>
+                        <p className="text-xs text-gray-600">Fecha de emisión</p>
+                        <p className="text-sm font-semibold">{formatFecha(pruebaSalud.fechaPrueba)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-600">Válido hasta</p>
+                        <p className="text-sm font-semibold">{formatFecha(pruebaSalud.fechaVencimiento)}</p>
+                      </div>
+                    </div>
+                    
+                    {pruebaSalud.notas && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <p className="text-xs text-blue-600 font-medium mb-1">Observaciones:</p>
+                        <p className="text-sm text-blue-800">{pruebaSalud.notas}</p>
+                      </div>
+                    )}
+                  </>
+                )}
+                
+                {!pruebaSalud && (
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                    <p className="text-xs text-gray-600">
+                      El apto médico es obligatorio para acceder a la pileta. Contacta con el personal de enfermería.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </main>
 
-      {/* Modal Historial de Abonos */}
       {showHistorial && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
@@ -626,7 +700,6 @@ function Dashboard() {
         </div>
       )}
 
-      {/* Modal Editar Perfil */}
       {showEditModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg max-w-md w-full p-6">
@@ -635,7 +708,6 @@ function Dashboard() {
             </h2>
 
             <form onSubmit={handleSaveProfile} className="space-y-4">
-              {/* Foto de perfil */}
               <div className="flex flex-col items-center mb-4">
                 <div className="mb-2">
                   <img
@@ -667,7 +739,6 @@ function Dashboard() {
                 )}
               </div>
 
-              {/* Información no editable */}
               <div className="bg-gray-50 p-4 rounded-lg mb-4">
                 <p className="text-sm text-gray-600 mb-2">
                   <strong>Nombre:</strong> {user?.nombre} {user?.apellido}
