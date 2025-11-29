@@ -9,6 +9,7 @@ function EscanearQR() {
   const { logout, user } = useAuth();
   const scannerRef = useRef(null);
   const html5QrcodeScannerRef = useRef(null);
+  const procesandoRef = useRef(false); // 👈 NUEVO: ref para evitar múltiples llamadas
 
   // Estados
   const [modoEscaneo, setModoEscaneo] = useState('camara');
@@ -19,8 +20,6 @@ function EscanearQR() {
   const [statsHoy, setStatsHoy] = useState(null);
   const [showResultModal, setShowResultModal] = useState(false);
   const [resultData, setResultData] = useState(null);
-  
-  // 👇 NUEVO: Estado para el lightbox de la foto
   const [showPhotoLightbox, setShowPhotoLightbox] = useState(false);
 
   useEffect(() => {
@@ -40,6 +39,7 @@ function EscanearQR() {
 
   const iniciarEscaner = () => {
     if (!scannerRef.current) return;
+    procesandoRef.current = false; // Resetear el flag
     html5QrcodeScannerRef.current = new Html5QrcodeScanner(
       'reader',
       { 
@@ -59,10 +59,24 @@ function EscanearQR() {
       });
       html5QrcodeScannerRef.current = null;
     }
+    procesandoRef.current = false;
   };
 
   const onScanSuccess = (decodedText) => {
+    // 👇 CRÍTICO: Verificar con ref para evitar race conditions
+    if (procesandoRef.current) {
+      console.log('Ya procesando, ignorando escaneo duplicado');
+      return;
+    }
+    
     console.log('QR escaneado:', decodedText);
+    procesandoRef.current = true; // Marcar como procesando INMEDIATAMENTE
+    
+    // Pausar el escáner
+    if (html5QrcodeScannerRef.current) {
+      html5QrcodeScannerRef.current.pause(true);
+    }
+    
     procesarEscaneo(decodedText);
   };
 
@@ -86,7 +100,6 @@ function EscanearQR() {
   };
 
   const procesarEscaneo = async (codigoQR) => {
-    if (procesando) return;
     try {
       setProcesando(true);
       const data = await escaneoService.escanearQR(codigoQR, notas);
@@ -104,12 +117,21 @@ function EscanearQR() {
       setShowResultModal(true);
     } finally {
       setProcesando(false);
+      
+      // Reanudar el escáner después de 2 segundos
+      setTimeout(() => {
+        procesandoRef.current = false; // Permitir nuevos escaneos
+        if (html5QrcodeScannerRef.current && modoEscaneo === 'camara') {
+          html5QrcodeScannerRef.current.resume();
+        }
+      }, 2000);
     }
   };
 
   const handleEscaneoManual = (e) => {
     e.preventDefault();
-    if (qrCode.trim()) {
+    if (qrCode.trim() && !procesandoRef.current) {
+      procesandoRef.current = true;
       procesarEscaneo(qrCode.trim());
     }
   };
@@ -192,6 +214,11 @@ function EscanearQR() {
                 <div>
                   <h3 className="text-lg font-semibold mb-4 text-gray-900">Escanear con Cámara</h3>
                   <div id="reader" ref={scannerRef}></div>
+                  {procesando && (
+                    <div className="mt-4 p-4 bg-blue-50 border-2 border-blue-200 rounded-lg text-center">
+                      <p className="text-blue-700 font-semibold">⏳ Procesando escaneo...</p>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div>
@@ -206,6 +233,7 @@ function EscanearQR() {
                         placeholder="Ingrese el código QR"
                         className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-lg font-mono"
                         autoFocus
+                        disabled={procesando}
                       />
                     </div>
                     <div>
@@ -216,6 +244,7 @@ function EscanearQR() {
                         placeholder="Agregar notas sobre el escaneo..."
                         className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none"
                         rows="2"
+                        disabled={procesando}
                       />
                     </div>
                     <button
@@ -303,7 +332,7 @@ function EscanearQR() {
         </div>
       </main>
 
-      {/* MODAL DE RESULTADO */}
+      {/* MODAL DE RESULTADO - TU VERSION ANTERIOR */}
       {showResultModal && resultData && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl max-w-2xl w-full overflow-hidden shadow-2xl animate-[fadeIn_0.3s_ease-in-out]">
@@ -581,29 +610,26 @@ function EscanearQR() {
         </div>
       )}
 
-      {/* 🖼️ LIGHTBOX PARA AMPLIAR LA FOTO - CLICK EN CUALQUIER LADO CIERRA */}
+      {/* 🖼️ LIGHTBOX PARA AMPLIAR LA FOTO */}
       {showPhotoLightbox && resultData?.usuario && (
         <div 
           className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center p-4 z-[60] cursor-pointer animate-[fadeIn_0.2s_ease-in-out]"
           onClick={() => setShowPhotoLightbox(false)}
         >
           <div className="relative max-w-4xl w-full">
-            {/* Instrucción */}
             <div className="absolute top-4 left-0 right-0 text-center">
               <p className="text-white text-sm bg-black bg-opacity-50 inline-block px-4 py-2 rounded-full">
                 Click en cualquier lugar para cerrar
               </p>
             </div>
 
-            {/* Foto ampliada */}
             <img
               src={resultData.usuario.fotoPerfil || `https://ui-avatars.com/api/?name=${resultData.usuario.nombre}+${resultData.usuario.apellido}&background=3B82F6&color=fff&size=512`}
               alt={`${resultData.usuario.nombre} ${resultData.usuario.apellido}`}
               className="w-full h-auto max-h-[80vh] object-contain rounded-lg shadow-2xl"
-              onClick={(e) => e.stopPropagation()} // Evita que el click en la imagen cierre el lightbox
+              onClick={(e) => e.stopPropagation()}
             />
 
-            {/* Nombre debajo */}
             <div className="absolute bottom-4 left-0 right-0 text-center">
               <div className="bg-black bg-opacity-70 inline-block px-6 py-3 rounded-full">
                 <p className="text-white text-xl font-bold">

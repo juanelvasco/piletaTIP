@@ -376,17 +376,26 @@ const eliminarUsuario = async (req, res) => {
   }
 };
 
-// @desc    Obtener estadísticas de usuarios
-// @route   GET /api/users/estadisticas
-// @access  Privado (Admin)
 const obtenerEstadisticas = async (req, res) => {
   try {
     const total = await Usuario.countDocuments();
     const activos = await Usuario.countDocuments({ activo: true });
     const baneados = await Usuario.countDocuments({ baneado: true });
     const admins = await Usuario.countDocuments({ rol: 'admin' });
-    const usuarios = await Usuario.countDocuments({ rol: 'usuario' });
-    const conAbono = await Usuario.countDocuments({ abonoActual: { $ne: null } });
+    const usuariosRegulares = await Usuario.countDocuments({ rol: 'usuario' });
+    
+    // Contar usuarios con abonos activos verificando que el abono exista y esté vigente
+    const usuariosConAbono = await Usuario.find({ 
+      abonoActual: { $ne: null } 
+    }).populate('abonoActual');
+    
+    const abonosActivosReales = usuariosConAbono.filter(u => {
+      if (!u.abonoActual) return false;
+      const hoy = new Date();
+      return u.abonoActual.activo && 
+             u.abonoActual.pagado && 
+             u.abonoActual.fechaFin >= hoy;
+    }).length;
     
     res.json({
       total,
@@ -394,9 +403,9 @@ const obtenerEstadisticas = async (req, res) => {
       inactivos: total - activos,
       baneados,
       admins,
-      usuarios,
-      conAbono,
-      sinAbono: total - conAbono
+      usuarios: usuariosRegulares,
+      conAbono: abonosActivosReales,
+      sinAbono: total - abonosActivosReales
     });
     
   } catch (error) {

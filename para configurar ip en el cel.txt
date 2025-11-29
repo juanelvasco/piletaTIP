@@ -1,0 +1,15 @@
+Vas a: chrome://flags
+Buscás: "Insecure origins treated as secure"
+Agregás: http://192.168.1.38:5173
+Reiniciás Chrome
+Listo! Ahora Chrome trata tu IP como segura
+
+Pros:
+
+✅ Más fácil que todo
+✅ No modificás código
+✅ No hay advertencias
+
+Contras:
+
+⚠️ Solo funciona en Chrome
