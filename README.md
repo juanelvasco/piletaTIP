@@ -57,311 +57,410 @@ Sistema completo de gestión y control de acceso para piletas públicas y natato
 - **QRCode.react** para generación de códigos QR
 - **Html5-qrcode** para escaneo de QR
 
-## 📁 Estructura del Proyecto
+🏊‍♂️ Sistema de Gestión de Natatorio
+Mostrar imagen
+Mostrar imagen
+Mostrar imagen
+Mostrar imagen
+Sistema integral de gestión para natatorios y piscinas municipales o privadas, desarrollado con stack MERN (MongoDB, Express, React, Node.js).
 
-```
-proyecto/
-├── backend/
-│   ├── controllers/          # Lógica de negocio
-│   │   ├── abonoController.js
-│   │   ├── authController.js
-│   │   ├── configController.js
-│   │   ├── escaneoController.js
-│   │   ├── saludController.js
-│   │   └── userController.js
-│   ├── middleware/           # Middlewares
-│   │   └── auth.js          # Autenticación JWT
-│   ├── models/              # Modelos de MongoDB
-│   │   ├── Abono.js
-│   │   ├── Configuracion.js
-│   │   ├── Escaneo.js
-│   │   ├── PruebaSalud.js
-│   │   ├── Tarifa.js
-│   │   └── Usuario.js
-│   ├── routes/              # Rutas de la API
-│   │   ├── abonos.js
-│   │   ├── auth.js
-│   │   ├── config.js
-│   │   ├── escaneos.js
-│   │   ├── salud.js
-│   │   └── users.js
-│   ├── .env                 # Variables de entorno
-│   ├── server.js            # Punto de entrada
-│   └── package.json
-│
-└── frontend/
-    ├── src/
-    │   ├── components/      # Componentes reutilizables
-    │   │   └── ProtectedRoute.jsx
-    │   ├── context/         # Context API
-    │   │   └── AuthContext.jsx
-    │   ├── pages/           # Páginas de la aplicación
-    │   │   ├── admin/       # Páginas de administrador
-    │   │   │   ├── Abonos.jsx
-    │   │   │   ├── Dashboard.jsx
-    │   │   │   ├── EscanearQR.jsx
-    │   │   │   ├── Reportes.jsx
-    │   │   │   └── Usuarios.jsx
-    │   │   ├── auth/        # Autenticación
-    │   │   │   ├── Login.jsx
-    │   │   │   └── Register.jsx
-    │   │   ├── enfermero/   # Panel de enfermero
-    │   │   │   ├── CargarApto.jsx
-    │   │   │   ├── Dashboard.jsx
-    │   │   │   └── Usuarios.jsx
-    │   │   └── user/        # Panel de usuario
-    │   │       ├── Dashboard.jsx
-    │   │       └── MiQR.jsx
-    │   ├── services/        # Servicios API
-    │   │   ├── abonoService.js
-    │   │   ├── api.js
-    │   │   ├── authService.js
-    │   │   ├── escaneoService.js
-    │   │   ├── statsService.js
-    │   │   └── userService.js
-    │   ├── App.jsx
-    │   └── main.jsx
-    ├── .env                 # Variables de entorno
-    ├── index.html
-    ├── tailwind.config.js
-    ├── vite.config.js
-    └── package.json
-```
+📋 Tabla de Contenidos
 
-## 🚀 Instalación y Configuración
+Características
+Demo
+Tecnologías
+Requisitos Previos
+Instalación
+Configuración
+Uso
+Estructura del Proyecto
+API Endpoints
+Despliegue
+Mantenimiento
+Roadmap
+Contribuir
+Licencia
+Contacto
 
-### Prerequisitos
 
-- Node.js (v16 o superior)
-- MongoDB Atlas (o instancia local de MongoDB)
-- npm o yarn
+✨ Características
+🎯 Funcionalidades Principales
 
-### 1. Clonar el repositorio
+Control de Acceso con QR: Escaneo rápido y validación automática
+Gestión de Abonos: Tipos configurables dinámicamente
+Aptos Médicos: Control de vencimientos y alertas
+Multi-Rol: Admin, Enfermero y Usuario
+Reportes Financieros: Planilla de ingresos exportable a CSV
+Historial Completo: Registro de todos los accesos y transacciones
+Dashboard Personalizado: Vista específica por rol
+Responsive Design: Funciona en desktop, tablet y móvil
 
-```bash
-git clone <url-del-repositorio>
-cd proyecto
-```
+🔐 Seguridad
 
-### 2. Configurar Backend
+Autenticación JWT con tokens seguros
+Contraseñas encriptadas con bcrypt
+Protección de rutas por rol
+Validación de datos en frontend y backend
+Códigos QR únicos por usuario
 
-```bash
-cd backend
+📊 Reportes y Estadísticas
+
+Dashboard con métricas en tiempo real
+Exportación de ingresos a CSV
+Filtros por fecha, tipo de abono y método de pago
+Historial de accesos por usuario
+Tasa de éxito de escaneos
+
+
+🎬 Demo
+Screenshots
+Dashboard Administrador:
+Mostrar imagen
+Escaneo QR:
+Mostrar imagen
+Gestión de Abonos:
+Mostrar imagen
+Video Demo
+Ver video de demostración
+
+🛠️ Tecnologías
+Frontend
+
+React 18.2: Librería UI moderna
+React Router 6: Enrutamiento SPA
+Tailwind CSS: Framework de estilos utility-first
+Axios: Cliente HTTP
+QRCode.js: Generación de códigos QR
+html5-qrcode: Escaneo de códigos QR
+Vite: Build tool ultra-rápido
+
+Backend
+
+Node.js 18+: Runtime JavaScript
+Express 4: Framework web minimalista
+MongoDB 6: Base de datos NoSQL
+Mongoose: ODM para MongoDB
+JWT: Autenticación basada en tokens
+bcryptjs: Encriptación de contraseñas
+Cors: Manejo de CORS
+dotenv: Variables de entorno
+
+DevOps
+
+Git: Control de versiones
+PM2: Process manager para Node.js
+Nginx: Servidor web y reverse proxy
+MongoDB Atlas: Base de datos en la nube
+
+
+📦 Requisitos Previos
+Antes de comenzar, asegúrate de tener instalado:
+
+Node.js >= 18.0.0
+npm >= 9.0.0 o yarn >= 1.22.0
+MongoDB >= 6.0 (local o Atlas)
+Git (opcional, para clonar el repositorio)
+
+Verificar versiones:
+bashnode --version
+npm --version
+mongod --version
+
+🚀 Instalación
+1. Clonar el Repositorio
+bashgit clone https://github.com/tu-usuario/natatorio-sistema.git
+cd natatorio-sistema
+2. Instalar Dependencias
+Backend:
+bashcd backend
 npm install
-```
-
-Crear archivo `.env` con las siguientes variables:
-
-```env
-# Configuración del servidor
+Frontend:
+bashcd frontend
+npm install
+3. Configurar Variables de Entorno
+Backend (backend/.env):
+env# Puerto del servidor
 PORT=5000
 
-# MongoDB Atlas - Reemplazá con tu connection string
-MONGODB_URI=mongodb+srv://usuario:password@cluster.mongodb.net/nombre-db?retryWrites=true&w=majority
+# MongoDB
+MONGODB_URI=mongodb://localhost:27017/natatorio
+# O MongoDB Atlas:
+# MONGODB_URI=mongodb+srv://usuario:password@cluster.mongodb.net/natatorio
 
-# JWT Secret - Cambiá esto por algo más seguro
-JWT_SECRET=tu_secreto_super_seguro_jwt
+# JWT
+JWT_SECRET=tu_clave_secreta_muy_segura_cambiame
+JWT_EXPIRE=30d
 
-# Frontend URL (para CORS)
-FRONTEND_URL=http://localhost:5173
-
-# Para acceso desde red local (opcional)
-# VITE_API_URL=http://192.168.1.X:5000/api
-```
-
-Iniciar el servidor:
-
-```bash
-npm start
-```
-
-El backend estará corriendo en `http://localhost:5000`
-
-### 3. Configurar Frontend
-
-```bash
-cd frontend
-npm install
-```
-
-Crear archivo `.env`:
-
-```env
-# URL de la API
+# Entorno
+NODE_ENV=development
+Frontend (frontend/.env):
+env# URL del backend
 VITE_API_URL=http://localhost:5000/api
-```
 
-Iniciar la aplicación:
+# Nombre de la aplicación
+VITE_APP_NAME=Sistema Natatorio
+4. Inicializar Base de Datos
+Opción A: MongoDB Local
+bash# Iniciar MongoDB
+mongod
+Opción B: MongoDB Atlas
 
-```bash
+Crear cuenta en MongoDB Atlas
+Crear cluster gratuito
+Crear usuario de base de datos
+Whitelist IP: 0.0.0.0/0 (todas las IPs)
+Copiar connection string a MONGODB_URI en .env
+
+5. Crear Usuario Administrador Inicial
+bashcd backend
+node scripts/createAdmin.js
+Esto crea un usuario admin con:
+
+Email: admin@natatorio.com
+Password: admin123
+
+⚠️ Cambiar contraseña inmediatamente después del primer login
+6. Iniciar el Sistema
+Modo Desarrollo:
+En dos terminales separadas:
+Terminal 1 - Backend:
+bashcd backend
 npm run dev
-```
+Terminal 2 - Frontend:
+bashcd frontend
+npm run dev
+Acceder a: http://localhost:5173
+Modo Producción:
+bash# Backend
+cd backend
+npm start
 
-El frontend estará corriendo en `http://localhost:5173`
+# Frontend (compilar)
+cd frontend
+npm run build
+# Los archivos estarán en /frontend/dist
 
-## 👥 Roles y Permisos
+⚙️ Configuración
+Configuración de Tipos de Abono
 
-### 🔴 Admin
-- Gestión completa de usuarios
-- Creación y gestión de membresías
-- Escaneo de códigos QR para control de acceso
-- Acceso a todos los reportes y estadísticas
-- Configuración del sistema (tarifas, etc.)
-- Rechazo manual de accesos
+Login como administrador
+Ir a "Configuración de Tarifas"
+Agregar tipos de abono según tus necesidades:
 
-### 🟡 Enfermero
-- Visualización de usuarios
-- Carga y gestión de certificados médicos
-- Verificación de aptitud física
+Ejemplos:
+- Mensual: $5000, 30 días
+- Trimestral: $13500, 90 días
+- Mensual Estudiantes: $4000, 30 días
+- Mensual Adultos Mayores: $3000, 30 días
+Carga de Usuarios
+Manualmente:
 
-### 🟢 Usuario
-- Visualización de su propio código QR para acceso a la pileta
-- Ver estado de su abono
-- Historial de accesos personales
-- Información de certificados médicos de aptitud física
+Ir a "Usuarios" → "Crear Usuario"
+Completar formulario
+El código QR se genera automáticamente
 
-## 📱 Uso del Sistema
+Masivamente (desde CSV):
+bashcd backend
+node scripts/importUsers.js usuarios.csv
+Formato del CSV:
+csvnombre,apellido,email,dni,telefono
+Juan,Pérez,juan@email.com,12345678,1234567890
+María,García,maria@email.com,87654321,0987654321
 
-### Para Administradores
+📖 Uso
+Roles de Usuario
+👨‍💼 Administrador
+Acceso completo al sistema:
 
-1. **Dashboard**: Vista general con estadísticas del día
-   - Usuarios activos/inactivos
-   - Escaneos del día
-   - Estado de certificados médicos
+✅ Gestionar usuarios (crear, editar, banear)
+✅ Gestionar abonos (crear, marcar pagos)
+✅ Configurar tipos de abono
+✅ Escanear QR para control de acceso
+✅ Ver reportes financieros
+✅ Cargar aptos médicos
 
-2. **Gestión de Usuarios**
-   - Crear, editar y eliminar usuarios
-   - Buscar por nombre, apellido, DNI o email
-   - Banear usuarios con motivo
-   - Ver detalles completos de cada usuario
+Dashboard: Estadísticas generales + acceso a todas las funcionalidades
+👩‍⚕️ Enfermero
+Permisos limitados:
 
-3. **Gestión de Abonos**
-   - Asignar abonos a usuarios
-   - Configurar tarifas personalizadas
-   - Ver estado de pagos
-   - Historial completo de abonos
+✅ Cargar aptos médicos
+✅ Ver lista de usuarios
+✅ Ver alertas de vencimientos
+❌ No puede gestionar abonos ni ver ingresos
 
-4. **Control de Acceso**
-   - Escanear códigos QR
-   - Validación automática de:
-     - Membresía activa
-     - Certificado médico vigente
-     - Estado de baneo
-   - Registrar notas en accesos
-   - Rechazar accesos manualmente
+Dashboard: Gestión de aptos médicos + alertas
+👤 Usuario Regular
+Permisos mínimos:
 
-5. **Reportes**
-   - Filtrar por fechas
-   - Filtrar por estado (aceptado/rechazado)
-   - Filtrar por tipo de membresía
-   - Ver motivos de rechazo
-   - Exportar datos (futuro)
+✅ Ver su propio perfil
+✅ Ver su código QR
+✅ Ver estado de su abono y apto médico
+✅ Ver historial de accesos
+✅ Editar su perfil (email, teléfono, foto)
+❌ No puede ver otros usuarios
 
-### Para Enfermeros
+Dashboard: Información personal + estado de abono/apto
+Flujo Típico
+1. Registro de Nuevo Usuario
 
-1. **Gestión de Certificados**
-   - Buscar usuarios
-   - Cargar certificados de aptitud física
-   - Establecer fecha de vencimiento
-   - Ver historial de certificados
+Admin crea usuario en el sistema
+Sistema genera código QR único
+Usuario recibe su QR (impreso o digital)
 
-### Para Usuarios
+2. Carga de Apto Médico
 
-1. **Mi QR**
-   - Ver código QR personal
-   - Descargar QR como imagen
-   - Ver estado de abono
+Enfermero escanea QR del usuario
+Selecciona días de validez (15, 30, 60, etc.)
+Confirma carga
+Sistema calcula fecha de vencimiento
 
-2. **Dashboard**
-   - Ver información de abono actual
-   - Estado de certificado médico de aptitud física
-   - Historial de accesos recientes a la pileta
+3. Creación de Abono
 
-## 🔧 Configuración del Sistema
+Admin escanea QR del usuario
+Selecciona tipo de abono
+Precio se carga automáticamente
+Crea abono (estado: Pendiente)
 
-### Tarifas
+4. Registro de Pago
 
-El sistema permite configurar diferentes tipos de abonos con sus respectivos precios:
+Usuario paga (efectivo, MercadoPago, transferencia)
+Admin marca abono como "Pagado"
+Selecciona método de pago
+Abono queda activo
 
-- Mensual
-- Trimestral
-- Semestral
-- Anual
+5. Control de Acceso
 
-Estas tarifas se gestionan desde el panel de administración y se aplican automáticamente al crear nuevos abonos.
+Usuario presenta su QR en la entrada
+Admin escanea el código
+Sistema valida:
 
-### Certificados Médicos
+✅ Usuario activo
+✅ Abono vigente y pagado
+✅ Apto médico vigente
 
-Los certificados médicos de aptitud física son obligatorios para el acceso a la pileta. El sistema:
-- Valida automáticamente la vigencia al intentar acceder
-- Alerta cuando un certificado está próximo a vencer
-- Bloquea el acceso si el certificado está vencido
-- Permite al personal médico/enfermero cargar y gestionar certificados
 
-## 🌐 Acceso desde Red Local
+Resultado inmediato: Permitido ✅ o Denegado ❌
+Se registra el acceso
 
-Para acceder desde otros dispositivos en tu red local:
 
-1. Obtén tu IP local:
-   - Windows: `ipconfig`
-   - Linux/Mac: `ip addr` o `ifconfig`
+📁 Estructura del Proyecto
+natatorio-sistema/
+├── backend/                      # Servidor Node.js + Express
+│   ├── config/
+│   │   └── db.js                 # Configuración MongoDB
+│   ├── controllers/
+│   │   ├── authController.js     # Autenticación
+│   │   ├── userController.js     # CRUD usuarios
+│   │   ├── abonoController.js    # CRUD abonos
+│   │   ├── configuracionController.js # Tipos de abono
+│   │   └── escaneoController.js  # Escaneos y salud
+│   ├── middleware/
+│   │   └── authMiddleware.js     # JWT + verificación roles
+│   ├── models/
+│   │   ├── Usuario.js            # Schema usuarios
+│   │   ├── Abono.js              # Schema abonos
+│   │   ├── Configuracion.js      # Schema configuración
+│   │   ├── Escaneo.js            # Schema escaneos
+│   │   └── PruebaSalud.js        # Schema aptos médicos
+│   ├── routes/
+│   │   ├── auth.js               # Rutas autenticación
+│   │   ├── users.js              # Rutas usuarios
+│   │   ├── abonos.js             # Rutas abonos
+│   │   ├── configuracion.js      # Rutas configuración
+│   │   ├── escaneos.js           # Rutas escaneos
+│   │   ├── salud.js              # Rutas salud
+│   │   └── reportes.js           # Rutas reportes
+│   ├── scripts/
+│   │   ├── createAdmin.js        # Crear admin inicial
+│   │   └── importUsers.js        # Importar usuarios CSV
+│   ├── .env.example              # Ejemplo variables de entorno
+│   ├── server.js                 # Punto de entrada
+│   └── package.json
+│
+├── frontend/                     # Cliente React + Vite
+│   ├── public/
+│   │   └── index.html
+│   ├── src/
+│   │   ├── assets/               # Imágenes, logos
+│   │   ├── components/           # Componentes reutilizables
+│   │   │   ├── Navbar.jsx
+│   │   │   └── Modal.jsx
+│   │   ├── context/
+│   │   │   └── AuthContext.jsx   # Context de autenticación
+│   │   ├── pages/
+│   │   │   ├── admin/            # Páginas del admin
+│   │   │   │   ├── Dashboard.jsx
+│   │   │   │   ├── Usuarios.jsx
+│   │   │   │   ├── Abonos.jsx
+│   │   │   │   ├── ConfiguracionTarifas.jsx
+│   │   │   │   ├── EscanearQR.jsx
+│   │   │   │   └── PlanillaIngresos.jsx
+│   │   │   ├── enfermero/        # Páginas del enfermero
+│   │   │   │   ├── Dashboard.jsx
+│   │   │   │   └── CargarApto.jsx
+│   │   │   ├── user/             # Páginas del usuario
+│   │   │   │   └── Dashboard.jsx
+│   │   │   └── Login.jsx
+│   │   ├── services/             # Servicios API
+│   │   │   ├── api.js            # Cliente Axios
+│   │   │   ├── authService.js
+│   │   │   ├── userService.js
+│   │   │   ├── abonoService.js
+│   │   │   ├── escaneoService.js
+│   │   │   └── statsService.js
+│   │   ├── App.jsx               # Componente principal
+│   │   ├── main.jsx              # Punto de entrada
+│   │   └── index.css             # Estilos Tailwind
+│   ├── .env.example
+│   ├── vite.config.js
+│   ├── tailwind.config.js
+│   └── package.json
+│
+├── docs/                         # Documentación
+│   ├── MANUAL_COMPLETO_SISTEMA_NATATORIO.md
+│   ├── MANUAL_DEL_COMPRADOR.md
+│   ├── API.md                    # Documentación API
+│   ├── DEPLOYMENT.md             # Guía de despliegue
+│   └── screenshots/              # Capturas de pantalla
+│
+├── .gitignore
+├── LICENSE
+└── README.md                     # Este archivo
 
-2. Actualiza las variables de entorno:
-
-**Backend (.env)**:
-```env
-FRONTEND_URL=http://192.168.1.X:5173
-```
-
-**Frontend (.env)**:
-```env
-VITE_API_URL=http://192.168.1.X:5000/api
-```
-
-3. El backend está configurado para escuchar en todas las interfaces (`0.0.0.0`)
-
-## 🔐 Seguridad
-
-- ✅ Contraseñas hasheadas con bcrypt
-- ✅ Autenticación basada en JWT
-- ✅ Tokens con expiración
-- ✅ Middleware de autorización por roles
-- ✅ Validación de datos en backend
-- ✅ Protección CORS configurada
-- ✅ Variables sensibles en archivos .env (no versionados)
-
-## 📊 Modelos de Datos
-
-### Usuario
-- Datos personales (nombre, apellido, DNI, email, teléfono)
-- Contraseña encriptada
-- Rol (admin, enfermero, usuario)
-- Estado (activo, baneado)
-- Código QR único
-- Referencia a abono actual
-- Certificado médico
-
-### Abono
-- Usuario asociado
-- Tipo de abono
-- Precio
-- Fecha de inicio y vencimiento
-- Estado (activo/inactivo, pagado/impago)
-- Método de pago
-
-### Escaneo
-- Usuario que escaneó
-- Fecha y hora
-- Estado (aceptado/rechazado)
-- Motivo de rechazo (si aplica)
-- Notas opcionales
-
-### PruebaSalud
-- Usuario asociado
-- Fecha de emisión
-- Fecha de vencimiento
-- Archivo del certificado (opcional)
-
+🔌 API Endpoints
+Autenticación
+POST   /api/auth/login           # Iniciar sesión
+GET    /api/auth/me              # Obtener usuario actual
+Usuarios
+GET    /api/users                # Listar usuarios (Admin)
+POST   /api/users                # Crear usuario (Admin)
+GET    /api/users/:id            # Obtener usuario por ID
+PUT    /api/users/:id            # Actualizar usuario
+DELETE /api/users/:id            # Eliminar usuario (Admin)
+PUT    /api/users/:id/banear     # Banear/desbanear usuario (Admin)
+GET    /api/users/estadisticas   # Estadísticas de usuarios (Admin)
+Abonos
+GET    /api/abonos               # Listar abonos (Admin)
+POST   /api/abonos               # Crear abono (Admin)
+GET    /api/abonos/mi-abono      # Obtener mi abono (Usuario)
+GET    /api/abonos/:id           # Obtener abono por ID
+PUT    /api/abonos/:id/pagar     # Marcar como pagado (Admin)
+DELETE /api/abonos/:id           # Eliminar abono (Admin)
+GET    /api/abonos/tipos-unicos  # Obtener tipos de abono
+Configuración
+GET    /api/configuracion         # Obtener configuración
+PUT    /api/configuracion         # Actualizar configuración (Admin)
+Escaneos
+POST   /api/escaneos/escanear     # Registrar escaneo (Admin)
+GET    /api/escaneos/hoy          # Escaneos del día (Admin)
+GET    /api/escaneos/mi-historial # Historial del usuario
+GET    /api/escaneos/estadisticas # Estadísticas de escaneos (Admin)
+Salud (Aptos Médicos)
+POST   /api/salud                 # Crear apto (Admin/Enfermero)
+GET    /api/salud/mi-prueba       # Obtener mi apto (Usuario)
+GET    /api/salud/estadisticas    # Estadísticas de aptos (Admin)
+Reportes
+GET    /api/reportes/ingresos     # Planilla de ingresos (Admin)
 ## 🚧 Funcionalidades Futuras
 
 - [ ] Integración con MercadoPago para pagos online
@@ -385,5 +484,5 @@ VITE_API_URL=http://192.168.1.X:5000/api
 ---
 
 
-*Última actualización: Noviembre 2025*
+*Última actualización: Enero 2026*
 
