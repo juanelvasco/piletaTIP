@@ -25,7 +25,7 @@ const usuarioSchema = new mongoose.Schema({
     type: String,
     required: [true, 'La contraseña es obligatoria'],
     minlength: [6, 'La contraseña debe tener al menos 6 caracteres'],
-    select: false // No se devuelve por defecto en las queries
+    select: false
   },
   dni: {
     type: String,
@@ -35,6 +35,16 @@ const usuarioSchema = new mongoose.Schema({
   },
   telefono: {
     type: String,
+    trim: true
+  },
+  provincia: {
+    type: String,
+    required: [true, 'La provincia es obligatoria'],
+    trim: true
+  },
+  localidad: {
+    type: String,
+    required: [true, 'La localidad es obligatoria'],
     trim: true
   },
   
@@ -52,8 +62,7 @@ const usuarioSchema = new mongoose.Schema({
   },
   qrCode: {
     type: String,
-    unique: true,
-    // Se generará automáticamente al crear el usuario
+    unique: true
   },
   
   // Relaciones
@@ -86,18 +95,16 @@ const usuarioSchema = new mongoose.Schema({
     default: null
   }
 }, {
-  timestamps: true // Agrega createdAt y updatedAt automáticamente
+  timestamps: true
 });
 
 // MIDDLEWARE: Hashear password antes de guardar
 usuarioSchema.pre('save', async function(next) {
-  // Solo hashear si el password fue modificado
   if (!this.isModified('password')) {
     return next();
   }
   
   try {
-    // Generar salt y hashear
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
     next();
@@ -108,9 +115,7 @@ usuarioSchema.pre('save', async function(next) {
 
 // MIDDLEWARE: Generar código QR único antes de guardar
 usuarioSchema.pre('save', async function(next) {
-  // Solo generar si es un usuario nuevo y no tiene qrCode
   if (this.isNew && !this.qrCode) {
-    // Generar código único: DNI + timestamp + random
     const timestamp = Date.now();
     const random = Math.floor(Math.random() * 10000);
     this.qrCode = `USER-${this.dni}-${timestamp}-${random}`;
@@ -134,8 +139,6 @@ usuarioSchema.methods.toJSON = function() {
 usuarioSchema.virtual('nombreCompleto').get(function() {
   return `${this.nombre} ${this.apellido}`;
 });
-
-
 
 const Usuario = mongoose.model('Usuario', usuarioSchema);
 

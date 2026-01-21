@@ -1,33 +1,44 @@
 const mongoose = require('mongoose');
 
 const configuracionSchema = new mongoose.Schema({
-  // Precios de abonos (en pesos argentinos)
-  tarifas: {
-    mensual: {
-      type: Number,
-      required: true,
-      default: 15000,
-      min: [0, 'El precio no puede ser negativo']
-    },
-    trimestral: {
-      type: Number,
-      required: true,
-      default: 40000,
-      min: [0, 'El precio no puede ser negativo']
-    },
-    semestral: {
-      type: Number,
-      required: true,
-      default: 75000,
-      min: [0, 'El precio no puede ser negativo']
-    },
-    anual: {
-      type: Number,
-      required: true,
-      default: 140000,
-      min: [0, 'El precio no puede ser negativo']
+  // ✅ NUEVO: Tipos de abono dinámicos (array de objetos)
+  tiposAbono: [
+    {
+      id: {
+        type: String,
+        required: true,
+        unique: true
+      },
+      nombre: {
+        type: String,
+        required: true,
+        trim: true
+      },
+      precio: {
+        type: Number,
+        required: true,
+        min: [0, 'El precio no puede ser negativo']
+      },
+      duracionDias: {
+        type: Number,
+        required: true,
+        min: [1, 'La duración debe ser al menos 1 día']
+      },
+      descripcion: {
+        type: String,
+        trim: true,
+        default: ''
+      },
+      activo: {
+        type: Boolean,
+        default: true
+      },
+      orden: {
+        type: Number,
+        default: 0
+      }
     }
-  },
+  ],
   
   // Configuración de prueba de salud
   pruebaSalud: {
@@ -99,19 +110,19 @@ const configuracionSchema = new mongoose.Schema({
     publicKey: {
       type: String,
       default: null,
-      select: false // No se devuelve por defecto
+      select: false
     },
     accessToken: {
       type: String,
       default: null,
-      select: false // No se devuelve por defecto
+      select: false
     }
   },
   
   // Control de versión y actualización
   version: {
     type: String,
-    default: '1.0.0'
+    default: '2.0.0' // Nueva versión con tipos dinámicos
   },
   ultimaActualizacion: {
     type: Date,
@@ -126,40 +137,53 @@ const configuracionSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// VIRTUAL: Obtener descuento por tipo de abono (comparado con mensual)
-configuracionSchema.virtual('descuentos').get(function() {
-  const precioMensual = this.tarifas.mensual;
+// ✅ NUEVO: Agregar tipo de abono
+configuracionSchema.methods.agregarTipoAbono = async function(nuevoTipo) {
+  // Generar ID único si no existe
+  if (!nuevoTipo.id) {
+    nuevoTipo.id = nuevoTipo.nombre.toLowerCase().replace(/\s+/g, '-');
+  }
   
-  return {
-    trimestral: this.calcularDescuento(precioMensual * 3, this.tarifas.trimestral),
-    semestral: this.calcularDescuento(precioMensual * 6, this.tarifas.semestral),
-    anual: this.calcularDescuento(precioMensual * 12, this.tarifas.anual)
-  };
-});
-
-// MÉTODO: Calcular descuento porcentual
-configuracionSchema.methods.calcularDescuento = function(precioSinDescuento, precioConDescuento) {
-  const descuento = ((precioSinDescuento - precioConDescuento) / precioSinDescuento) * 100;
-  return Math.round(descuento * 100) / 100; // Redondear a 2 decimales
-};
-
-// MÉTODO: Actualizar tarifas
-configuracionSchema.methods.actualizarTarifas = async function(nuevasTarifas, adminId) {
-  if (nuevasTarifas.mensual) this.tarifas.mensual = nuevasTarifas.mensual;
-  if (nuevasTarifas.trimestral) this.tarifas.trimestral = nuevasTarifas.trimestral;
-  if (nuevasTarifas.semestral) this.tarifas.semestral = nuevasTarifas.semestral;
-  if (nuevasTarifas.anual) this.tarifas.anual = nuevasTarifas.anual;
+  // Verificar que no exista
+  const existe = this.tiposAbono.find(t => t.id === nuevoTipo.id);
+  if (existe) {
+    throw new Error('Ya existe un tipo de abono con ese ID');
+  }
   
-  this.ultimaActualizacion = new Date();
-  this.actualizadoPor = adminId;
-  
+  this.tiposAbono.push(nuevoTipo);
   await this.save();
   return this;
 };
 
-// MÉTODO: Obtener precio por tipo de abono
-configuracionSchema.methods.obtenerPrecio = function(tipoAbono) {
-  return this.tarifas[tipoAbono] || null;
+// ✅ NUEVO: Eliminar tipo de abono
+configuracionSchema.methods.eliminarTipoAbono = async function(tipoId) {
+  this.tiposAbono = this.tiposAbono.filter(t => t.id !== tipoId);
+  await this.save();
+  return this;
+};
+
+// ✅ NUEVO: Actualizar tipo de abono
+configuracionSchema.methods.actualizarTipoAbono = async function(tipoId, datosActualizados) {
+  const tipo = this.tiposAbono.find(t => t.id === tipoId);
+  if (!tipo) {
+    throw new Error('Tipo de abono no encontrado');
+  }
+  
+  Object.assign(tipo, datosActualizados);
+  await this.save();
+  return this;
+};
+
+// ✅ NUEVO: Obtener precio por ID de tipo
+configuracionSchema.methods.obtenerPrecio = function(tipoId) {
+  const tipo = this.tiposAbono.find(t => t.id === tipoId && t.activo);
+  return tipo ? tipo.precio : null;
+};
+
+// ✅ NUEVO: Obtener duración por ID de tipo
+configuracionSchema.methods.obtenerDuracion = function(tipoId) {
+  const tipo = this.tiposAbono.find(t => t.id === tipoId && t.activo);
+  return tipo ? tipo.duracionDias : null;
 };
 
 // MÉTODO ESTÁTICO: Obtener o crear configuración (singleton)
@@ -169,58 +193,61 @@ configuracionSchema.statics.obtener = async function() {
   // Si no existe, crear una con valores por defecto
   if (!config) {
     config = await this.create({
-      tarifas: {
-        mensual: 15000,
-        trimestral: 40000,
-        semestral: 75000,
-        anual: 140000
-      }
+      tiposAbono: [
+        {
+          id: 'diario',
+          nombre: 'Diario',
+          precio: 6000,
+          duracionDias: 1,
+          descripcion: 'Acceso por 1 día',
+          orden: 1
+        },
+        {
+          id: 'mensual',
+          nombre: 'Mensual',
+          precio: 15000,
+          duracionDias: 30,
+          descripcion: 'Acceso por 30 días',
+          orden: 2
+        },
+        {
+          id: 'trimestral',
+          nombre: 'Trimestral',
+          precio: 40000,
+          duracionDias: 90,
+          descripcion: 'Acceso por 90 días (3 meses)',
+          orden: 3
+        },
+        {
+          id: 'semestral',
+          nombre: 'Semestral',
+          precio: 75000,
+          duracionDias: 180,
+          descripcion: 'Acceso por 180 días (6 meses)',
+          orden: 4
+        },
+        {
+          id: 'anual',
+          nombre: 'Anual',
+          precio: 140000,
+          duracionDias: 365,
+          descripcion: 'Acceso por 365 días (1 año)',
+          orden: 5
+        }
+      ]
     });
   }
   
   return config;
 };
 
-// MÉTODO ESTÁTICO: Obtener solo tarifas públicas
-configuracionSchema.statics.obtenerTarifasPublicas = async function() {
+// MÉTODO ESTÁTICO: Obtener solo tipos de abono activos
+configuracionSchema.statics.obtenerTiposActivos = async function() {
   const config = await this.obtener();
-  
-  return {
-    tarifas: config.tarifas,
-    descuentos: config.descuentos,
-    pruebaSalud: {
-      diasValidez: config.pruebaSalud.diasValidez
-    },
-    sistema: {
-      nombrePileta: config.sistema.nombrePileta,
-      horarioApertura: config.sistema.horarioApertura,
-      horarioCierre: config.sistema.horarioCierre
-    }
-  };
+  return config.tiposAbono
+    .filter(t => t.activo)
+    .sort((a, b) => a.orden - b.orden);
 };
-
-// MIDDLEWARE: Actualizar fecha de modificación antes de guardar
-configuracionSchema.pre('save', function(next) {
-  if (!this.isNew) {
-    this.ultimaActualizacion = new Date();
-  }
-  next();
-});
-
-// MIDDLEWARE: Solo permitir UN documento de configuración
-configuracionSchema.pre('save', async function(next) {
-  if (this.isNew) {
-    const count = await this.constructor.countDocuments();
-    if (count > 0) {
-      throw new Error('Ya existe una configuración. Solo puede haber una configuración en el sistema.');
-    }
-  }
-  next();
-});
-
-// Incluir virtuals en JSON
-configuracionSchema.set('toJSON', { virtuals: true });
-configuracionSchema.set('toObject', { virtuals: true });
 
 const Configuracion = mongoose.model('Configuracion', configuracionSchema);
 

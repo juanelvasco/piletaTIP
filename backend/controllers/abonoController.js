@@ -26,7 +26,7 @@ const crearAbono = async (req, res) => {
     let precioFinal = precio;
     if (!precio) {
       const config = await Configuracion.obtener();
-      precioFinal = config.tarifas[tipoAbono];
+      precioFinal = config.obtenerPrecio(tipoAbono);
     }
     
     if (!precioFinal) {
@@ -458,6 +458,66 @@ const obtenerEstadisticas = async (req, res) => {
   }
 };
 
+// @desc    Obtener tipos de abono únicos (tanto activos como históricos)
+// @route   GET /api/abonos/tipos-unicos
+// @access  Private/Admin
+const obtenerTiposUnicos = async (req, res) => {
+  try {
+    // Obtener todos los tipos únicos de abonos existentes en la BD
+    const tiposHistoricos = await Abono.distinct('tipoAbono');
+    
+    // Obtener tipos activos de la configuración
+    const config = await Configuracion.obtener();
+    const tiposActivos = config.tiposAbono
+      .filter(t => t.activo)
+      .map(t => ({ id: t.id, nombre: t.nombre, activo: true }));
+    
+    // Crear mapa para evitar duplicados y combinar info
+    const tiposMap = {};
+    
+    // Agregar tipos activos primero
+    tiposActivos.forEach(tipo => {
+      tiposMap[tipo.id] = tipo;
+    });
+    
+    // Agregar tipos históricos que no estén en activos
+    tiposHistoricos.forEach(tipoId => {
+      if (!tiposMap[tipoId]) {
+        // Buscar si existe en configuración pero está inactivo
+        const tipoConfig = config.tiposAbono.find(t => t.id === tipoId);
+        
+        tiposMap[tipoId] = {
+          id: tipoId,
+          nombre: tipoConfig ? tipoConfig.nombre : tipoId,
+          activo: false,
+          historico: true
+        };
+      }
+    });
+    
+    // Convertir a array y ordenar
+    const tipos = Object.values(tiposMap).sort((a, b) => {
+      // Primero activos, luego históricos
+      if (a.activo && !b.activo) return -1;
+      if (!a.activo && b.activo) return 1;
+      // Alfabéticamente por nombre
+      return a.nombre.localeCompare(b.nombre);
+    });
+    
+    res.json({
+      success: true,
+      tipos
+    });
+  } catch (error) {
+    console.error('Error al obtener tipos únicos:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al obtener tipos de abono',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   crearAbono,
   obtenerAbonos,
@@ -468,5 +528,6 @@ module.exports = {
   marcarComoPagado,
   eliminarAbono,
   obtenerReporteVentas,
-  obtenerEstadisticas
+  obtenerEstadisticas,
+  obtenerTiposUnicos
 };

@@ -7,7 +7,8 @@ const {
   actualizarUsuario,
   toggleBanearUsuario,
   eliminarUsuario,
-  obtenerEstadisticas
+  obtenerEstadisticas,
+  obtenerUsuarioPorQR
 } = require('../controllers/userController');
 const { verificarToken, verificarAdmin, verificarAdminOEnfermero } = require('../middleware/auth');
 
@@ -20,6 +21,13 @@ const { verificarToken, verificarAdmin, verificarAdminOEnfermero } = require('..
 // IMPORTANTE: Esta ruta debe ir ANTES de /api/users/:id
 // porque sino Express interpretaría "estadisticas" como un :id
 router.get('/estadisticas', verificarToken, verificarAdminOEnfermero, obtenerEstadisticas);
+
+// ✅ CORREGIDO: Ruta de QR accesible para Admin Y Enfermero
+// @route   GET /api/users/qr/:qrCode
+// @desc    Obtener usuario por código QR
+// @access  Privado (Admin o Enfermero)
+// IMPORTANTE: Esta ruta también debe ir ANTES de /:id
+router.get('/qr/:qrCode', verificarToken, verificarAdminOEnfermero, obtenerUsuarioPorQR);
 
 // @route   GET /api/users
 // @desc    Obtener todos los usuarios (con paginación y filtros)

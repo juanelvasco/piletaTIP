@@ -346,11 +346,18 @@ const obtenerEscaneosHoy = async (req, res) => {
     
     const exitosos = escaneos.filter(e => e.exitoso).length;
     const rechazados = escaneos.filter(e => !e.exitoso).length;
+    const total = escaneos.length;
+    
+    // ✅ Calcular porcentaje de éxito
+    const porcentajeExito = total > 0 
+      ? Math.round((exitosos / total) * 100) 
+      : 0;
     
     res.json({
-      total: escaneos.length,
+      total,
       exitosos,
       rechazados,
+      porcentajeExito,
       escaneos
     });
     
@@ -534,3 +541,4 @@ module.exports = {
   obtenerReporteRechazos,
   rechazarEscaneoManual
 };
+

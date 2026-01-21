@@ -40,7 +40,8 @@ function EnfermeroUsuarios() {
       return {
         texto: 'Sin Apto',
         color: 'bg-red-100 text-red-800',
-        icono: '❌'
+        icono: '❌',
+        categoria: 'sinApto'  // ← AGREGAR CATEGORÍA
       };
     }
 
@@ -52,7 +53,8 @@ function EnfermeroUsuarios() {
       return {
         texto: 'Vencido',
         color: 'bg-red-100 text-red-800',
-        icono: '❌'
+        icono: '❌',
+        categoria: 'vencido'  // ← AGREGAR CATEGORÍA
       };
     }
 
@@ -60,7 +62,8 @@ function EnfermeroUsuarios() {
       return {
         texto: 'Por vencer',
         color: 'bg-orange-100 text-orange-800',
-        icono: '⚠️'
+        icono: '⚠️',
+        categoria: 'vigente'  // ← AGREGAR CATEGORÍA
       };
     }
 
@@ -68,17 +71,20 @@ function EnfermeroUsuarios() {
       return {
         texto: 'Próximo a vencer',
         color: 'bg-yellow-100 text-yellow-800',
-        icono: '⏰'
+        icono: '⏰',
+        categoria: 'vigente'  // ← AGREGAR CATEGORÍA
       };
     }
 
     return {
       texto: 'Vigente',
       color: 'bg-green-100 text-green-800',
-      icono: '✅'
+      icono: '✅',
+      categoria: 'vigente'  // ← AGREGAR CATEGORÍA
     };
   };
 
+  // ✅ NUEVA LÓGICA DE FILTRADO
   const usuariosFiltrados = usuarios.filter(usuario => {
     const matchBusqueda = busqueda === '' ||
       usuario.nombre?.toLowerCase().includes(busqueda.toLowerCase()) ||
@@ -86,13 +92,23 @@ function EnfermeroUsuarios() {
       usuario.dni?.includes(busqueda) ||
       usuario.email?.toLowerCase().includes(busqueda.toLowerCase());
 
+    const estado = obtenerEstadoApto(usuario);
+    
     const matchFiltro = 
       filtroApto === 'todos' ||
-      (filtroApto === 'conApto' && usuario.pruebaSalud) ||
-      (filtroApto === 'sinApto' && !usuario.pruebaSalud);
+      (filtroApto === 'vigente' && estado.categoria === 'vigente') ||  // ← Vigentes
+      (filtroApto === 'vencido' && estado.categoria === 'vencido') ||  // ← Vencidos
+      (filtroApto === 'sinApto' && estado.categoria === 'sinApto');    // ← Sin apto
 
     return matchBusqueda && matchFiltro;
   });
+
+  // ✅ CALCULAR CANTIDADES POR CATEGORÍA
+  const contadores = {
+    vigentes: usuarios.filter(u => obtenerEstadoApto(u).categoria === 'vigente').length,
+    vencidos: usuarios.filter(u => obtenerEstadoApto(u).categoria === 'vencido').length,
+    sinApto: usuarios.filter(u => obtenerEstadoApto(u).categoria === 'sinApto').length
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
@@ -166,7 +182,7 @@ function EnfermeroUsuarios() {
             <span className="absolute left-4 top-3.5 text-xl">🔍</span>
           </div>
 
-          {/* Filter Buttons */}
+          {/* ✅ BOTONES DE FILTRO ACTUALIZADOS */}
           <div className="flex flex-wrap gap-3">
             <button
               onClick={() => setFiltroApto('todos')}
@@ -179,14 +195,24 @@ function EnfermeroUsuarios() {
               📋 Todos ({usuarios.length})
             </button>
             <button
-              onClick={() => setFiltroApto('conApto')}
+              onClick={() => setFiltroApto('vigente')}
               className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                filtroApto === 'conApto'
+                filtroApto === 'vigente'
                   ? 'bg-green-500 text-white shadow-md'
                   : 'bg-white text-gray-700 border-2 border-gray-300 hover:border-green-500'
               }`}
             >
-              ✅ Con Apto ({usuarios.filter(u => u.pruebaSalud).length})
+              ✅ Vigentes ({contadores.vigentes})
+            </button>
+            <button
+              onClick={() => setFiltroApto('vencido')}
+              className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                filtroApto === 'vencido'
+                  ? 'bg-orange-500 text-white shadow-md'
+                  : 'bg-white text-gray-700 border-2 border-gray-300 hover:border-orange-500'
+              }`}
+            >
+              ❌ Vencidos ({contadores.vencidos})
             </button>
             <button
               onClick={() => setFiltroApto('sinApto')}
@@ -196,28 +222,28 @@ function EnfermeroUsuarios() {
                   : 'bg-white text-gray-700 border-2 border-gray-300 hover:border-red-500'
               }`}
             >
-              ❌ Sin Apto ({usuarios.filter(u => !u.pruebaSalud).length})
+              📭 Sin Apto ({contadores.sinApto})
             </button>
           </div>
         </div>
 
-        {/* Stats Summary */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        {/* ✅ STATS ACTUALIZADAS */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-white rounded-lg shadow p-4 border-l-4 border-blue-500">
             <p className="text-sm text-gray-600">Total Usuarios</p>
             <p className="text-2xl font-bold text-gray-800">{usuarios.length}</p>
           </div>
           <div className="bg-white rounded-lg shadow p-4 border-l-4 border-green-500">
-            <p className="text-sm text-gray-600">Con Apto Vigente</p>
-            <p className="text-2xl font-bold text-gray-800">
-              {usuarios.filter(u => u.pruebaSalud).length}
-            </p>
+            <p className="text-sm text-gray-600">Vigentes</p>
+            <p className="text-2xl font-bold text-gray-800">{contadores.vigentes}</p>
+          </div>
+          <div className="bg-white rounded-lg shadow p-4 border-l-4 border-orange-500">
+            <p className="text-sm text-gray-600">Vencidos</p>
+            <p className="text-2xl font-bold text-gray-800">{contadores.vencidos}</p>
           </div>
           <div className="bg-white rounded-lg shadow p-4 border-l-4 border-red-500">
             <p className="text-sm text-gray-600">Sin Apto</p>
-            <p className="text-2xl font-bold text-gray-800">
-              {usuarios.filter(u => !u.pruebaSalud).length}
-            </p>
+            <p className="text-2xl font-bold text-gray-800">{contadores.sinApto}</p>
           </div>
         </div>
 

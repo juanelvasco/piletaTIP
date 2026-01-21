@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { provincias, provinciasYLocalidades } from '../../data/provinciasYLocalidades';
 
 function Register() {
   const navigate = useNavigate();
@@ -13,10 +14,54 @@ function Register() {
     password: '',
     confirmPassword: '',
     dni: '',
-    telefono: ''
+    telefono: '',
+    provincia: 'Buenos Aires',
+    localidad: 'General Belgrano',
+    otraLocalidad: ''
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [localidadesDisponibles, setLocalidadesDisponibles] = useState(provinciasYLocalidades['Buenos Aires']);
+  const [mostrarOtraLocalidad, setMostrarOtraLocalidad] = useState(false);
+
+  const handleProvinciaChange = (e) => {
+    const nuevaProvincia = e.target.value;
+    const nuevasLocalidades = provinciasYLocalidades[nuevaProvincia];
+    
+    setFormData({
+      ...formData,
+      provincia: nuevaProvincia,
+      localidad: nuevasLocalidades[0],
+      otraLocalidad: ''
+    });
+    
+    setLocalidadesDisponibles(nuevasLocalidades);
+    setMostrarOtraLocalidad(false);
+    
+    if (error) setError('');
+  };
+
+  const handleLocalidadChange = (e) => {
+    const nuevaLocalidad = e.target.value;
+    
+    if (nuevaLocalidad === 'Otra') {
+      setMostrarOtraLocalidad(true);
+      setFormData({
+        ...formData,
+        localidad: nuevaLocalidad,
+        otraLocalidad: ''
+      });
+    } else {
+      setMostrarOtraLocalidad(false);
+      setFormData({
+        ...formData,
+        localidad: nuevaLocalidad,
+        otraLocalidad: ''
+      });
+    }
+    
+    if (error) setError('');
+  };
 
   const handleChange = (e) => {
     setFormData({
@@ -33,7 +78,7 @@ function Register() {
 
     // Validaciones
     if (!formData.nombre || !formData.apellido || !formData.email || 
-        !formData.password || !formData.dni) {
+        !formData.password || !formData.dni || !formData.provincia || !formData.localidad) {
       setError('Por favor complete todos los campos obligatorios');
       setLoading(false);
       return;
@@ -51,20 +96,34 @@ function Register() {
       return;
     }
 
+    if (formData.localidad === 'Otra' && !formData.otraLocalidad.trim()) {
+      setError('Por favor ingrese su localidad');
+      setLoading(false);
+      return;
+    }
+
     try {
-      // Preparar datos (sin confirmPassword)
-      const { confirmPassword, ...userData } = formData;
+      // Preparar datos
+      const { confirmPassword, otraLocalidad, ...userData } = formData;
       
-      const result = await register(userData);
+      // Usar otraLocalidad si seleccionó "Otra"
+      const dataToSend = {
+        ...userData,
+        localidad: formData.localidad === 'Otra' ? formData.otraLocalidad : formData.localidad
+      };
+      
+      console.log('Datos a enviar:', dataToSend); // DEBUG
+      
+      const result = await register(dataToSend);
 
       if (result.success) {
-        // Redirigir al dashboard de usuario
         navigate('/usuario/dashboard');
       } else {
         setError(result.error);
       }
     } catch (err) {
       setError('Error al registrar. Intente nuevamente.');
+      console.error('Error en registro:', err);
     } finally {
       setLoading(false);
     }
@@ -175,6 +234,70 @@ function Register() {
               />
             </div>
           </div>
+
+          {/* Provincia y Localidad */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Provincia */}
+            <div>
+              <label htmlFor="provincia" className="block text-sm font-medium text-gray-700 mb-2">
+                Provincia *
+              </label>
+              <select
+                id="provincia"
+                name="provincia"
+                value={formData.provincia}
+                onChange={handleProvinciaChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition bg-white"
+                disabled={loading}
+              >
+                {provincias.map((prov) => (
+                  <option key={prov} value={prov}>
+                    {prov}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Localidad */}
+            <div>
+              <label htmlFor="localidad" className="block text-sm font-medium text-gray-700 mb-2">
+                Localidad *
+              </label>
+              <select
+                id="localidad"
+                name="localidad"
+                value={formData.localidad}
+                onChange={handleLocalidadChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition bg-white"
+                disabled={loading}
+              >
+                {localidadesDisponibles.map((loc) => (
+                  <option key={loc} value={loc}>
+                    {loc}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Otra Localidad (condicional) */}
+          {mostrarOtraLocalidad && (
+            <div>
+              <label htmlFor="otraLocalidad" className="block text-sm font-medium text-gray-700 mb-2">
+                Ingrese su localidad *
+              </label>
+              <input
+                type="text"
+                id="otraLocalidad"
+                name="otraLocalidad"
+                value={formData.otraLocalidad}
+                onChange={handleChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                placeholder="Escriba el nombre de su localidad"
+                disabled={loading}
+              />
+            </div>
+          )}
 
           {/* Contraseñas */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

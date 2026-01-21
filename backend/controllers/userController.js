@@ -1,3 +1,5 @@
+// backend\controllers\userController.js
+
 const { Usuario, Escaneo } = require('../models');
 
 // @desc    Obtener todos los usuarios
@@ -425,4 +427,47 @@ module.exports = {
   toggleBanearUsuario,
   eliminarUsuario,
   obtenerEstadisticas
+};
+
+// @desc    Obtener usuario por código QR
+// @route   GET /api/users/qr/:qrCode
+// @access  Privado (Admin)
+const obtenerUsuarioPorQR = async (req, res) => {
+  try {
+    const { qrCode } = req.params;
+    
+    const usuario = await Usuario.findOne({ qrCode })
+      .select('-password');
+    
+    if (!usuario) {
+      return res.status(404).json({
+        success: false,
+        message: 'Usuario no encontrado con ese código QR'
+      });
+    }
+    
+    res.json({
+      success: true,
+      usuario
+    });
+    
+  } catch (error) {
+    console.error('Error en obtenerUsuarioPorQR:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al buscar usuario',
+      error: error.message
+    });
+  }
+};
+
+module.exports = {
+  obtenerUsuarios,
+  obtenerUsuarioPorId,
+  crearUsuario,
+  actualizarUsuario,
+  toggleBanearUsuario,
+  eliminarUsuario,
+  obtenerEstadisticas,
+  obtenerUsuarioPorQR
 };

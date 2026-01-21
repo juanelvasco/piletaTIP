@@ -22,7 +22,7 @@ const abonoSchema = new mongoose.Schema({
   tipoAbono: {
     type: String,
     enum: {
-      values: ['mensual', 'trimestral', 'semestral', 'anual'],
+      values: ['diario','mensual', 'trimestral', 'semestral', 'anual'],
       message: '{VALUE} no es un tipo de abono válido'
     },
     required: [true, 'El tipo de abono es obligatorio']
@@ -100,6 +100,8 @@ abonoSchema.statics.crearAbono = async function(usuarioId, tipoAbono, precio) {
   
   // Calcular fecha de fin según tipo
   switch(tipoAbono) {
+    case 'diario':
+       fechaFin.setDate(fechaFin.getDate() + 1);
     case 'mensual':
       fechaFin.setMonth(fechaFin.getMonth() + 1);
       break;

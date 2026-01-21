@@ -42,14 +42,14 @@ function Dashboard() {
       
       const [userStats, escaneoStats, saludStats] = await Promise.allSettled([
         statsService.getUserStats(),
-        statsService.getEscaneoStats().catch(() => ({ hoy: 0 })),
+        statsService.getEscaneosHoy().catch(() => ({ exitosos: 0 })),
         statsService.getSaludStats().catch(() => ({ vigentes: 0 }))
       ]);
 
       setStats({
         totalUsuarios: userStats.status === 'fulfilled' ? userStats.value.total : 0,
         abonosActivos: userStats.status === 'fulfilled' ? userStats.value.conAbono : 0,
-        accesosHoy: escaneoStats.status === 'fulfilled' ? (escaneoStats.value.hoy || 0) : 0,
+        accesosHoy: escaneoStats.status === 'fulfilled' ? (escaneoStats.value.exitosos || 0) : 0,
         pruebasVigentes: saludStats.status === 'fulfilled' ? (saludStats.value.vigentes || 0) : 0
       });
     } catch (error) {
@@ -218,7 +218,7 @@ function Dashboard() {
         {/* Acciones rápidas */}
         <div className="bg-white rounded-lg shadow p-6 mb-8">
           <h2 className="text-xl font-semibold mb-4">Acciones Rápidas</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <button
               onClick={() => navigate('/admin/usuarios')}
               className="px-6 py-4 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition text-left"
@@ -244,6 +244,25 @@ function Dashboard() {
               <div className="text-2xl mb-2">💳</div>
               <div className="font-semibold">Gestionar Abonos</div>
               <div className="text-sm opacity-90">Ver y crear abonos</div>
+            </button>
+
+            <button
+              onClick={() => navigate('/admin/ingresos')}
+              className="px-6 py-4 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg hover:from-orange-600 hover:to-red-600 transition text-left"
+            >
+              <div className="text-2xl mb-2">📊</div>
+              <div className="font-semibold">Planilla de Ingresos</div>
+              <div className="text-sm opacity-90">Análisis financiero</div>
+            </button>
+
+            {/* ✅ NUEVO: Configurar Tarifas */}
+            <button
+              onClick={() => navigate('/admin/configuracion/tarifas')}
+              className="px-6 py-4 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg hover:from-purple-600 hover:to-pink-700 transition text-left"
+            >
+              <div className="text-2xl mb-2">💰</div>
+              <div className="font-semibold">Configurar Tarifas</div>
+              <div className="text-sm opacity-90">Gestionar precios</div>
             </button>
           </div>
         </div>

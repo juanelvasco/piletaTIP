@@ -21,12 +21,14 @@ const generarToken = (usuario) => {
 // @access  Público
 const register = async (req, res) => {
   try {
-    const { nombre, apellido, email, password, dni, telefono } = req.body;
+     console.log('📥 DATOS RECIBIDOS:', req.body); // ← AGREGAR ESTA LÍNEA
+    // ✅ AGREGAR provincia y localidad
+    const { nombre, apellido, email, password, dni, telefono, provincia, localidad } = req.body;
     
-    // Validar campos obligatorios
-    if (!nombre || !apellido || !email || !password || !dni) {
+    // ✅ AGREGAR provincia y localidad a la validación
+    if (!nombre || !apellido || !email || !password || !dni || !provincia || !localidad) {
       return res.status(400).json({ 
-        message: 'Por favor complete todos los campos obligatorios: nombre, apellido, email, password, dni' 
+        message: 'Por favor complete todos los campos obligatorios: nombre, apellido, email, password, dni, provincia, localidad' 
       });
     }
     
@@ -46,7 +48,7 @@ const register = async (req, res) => {
       });
     }
     
-    // Crear el usuario (el middleware pre-save hasheará el password y generará el QR)
+    // ✅ AGREGAR provincia y localidad al crear usuario
     const usuario = await Usuario.create({
       nombre,
       apellido,
@@ -54,13 +56,15 @@ const register = async (req, res) => {
       password,
       dni,
       telefono,
+      provincia,
+      localidad,
       rol: 'usuario' // Por defecto es usuario regular
     });
     
     // Generar token
     const token = generarToken(usuario);
     
-    // Responder con usuario y token (sin password)
+    // ✅ AGREGAR provincia y localidad a la respuesta
     res.status(201).json({
       message: 'Usuario registrado exitosamente',
       token,
@@ -71,6 +75,8 @@ const register = async (req, res) => {
         email: usuario.email,
         dni: usuario.dni,
         telefono: usuario.telefono,
+        provincia: usuario.provincia,
+        localidad: usuario.localidad,
         rol: usuario.rol,
         qrCode: usuario.qrCode,
         fotoPerfil: usuario.fotoPerfil,
@@ -147,7 +153,7 @@ const login = async (req, res) => {
     // Generar token
     const token = generarToken(usuario);
     
-    // Responder con token y datos del usuario
+    // ✅ AGREGAR provincia y localidad a la respuesta
     res.json({
       message: 'Login exitoso',
       token,
@@ -158,6 +164,8 @@ const login = async (req, res) => {
         email: usuario.email,
         dni: usuario.dni,
         telefono: usuario.telefono,
+        provincia: usuario.provincia,
+        localidad: usuario.localidad,
         rol: usuario.rol,
         qrCode: usuario.qrCode,
         fotoPerfil: usuario.fotoPerfil,

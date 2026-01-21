@@ -10,13 +10,20 @@ const {
   marcarComoPagado,
   eliminarAbono,
   obtenerReporteVentas,
-  obtenerEstadisticas
+  obtenerEstadisticas,
+  obtenerTiposUnicos
 } = require('../controllers/abonoController');
 const { verificarToken, verificarAdmin } = require('../middleware/auth');
 
 // ============================================
 // RUTAS ESPECIALES (deben ir PRIMERO)
 // ============================================
+
+// ✅ NUEVA: Obtener tipos únicos para filtros
+// @route   GET /api/abonos/tipos-unicos
+// @desc    Obtener tipos de abono únicos (activos + históricos)
+// @access  Privado (Admin)
+router.get('/tipos-unicos', verificarToken, verificarAdmin, obtenerTiposUnicos);
 
 // @route   GET /api/abonos/estadisticas
 // @desc    Obtener estadísticas de abonos

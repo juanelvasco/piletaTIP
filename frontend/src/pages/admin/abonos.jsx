@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import * as abonoService from '../../services/abonoService';
 import * as userService from '../../services/userService';
+import api from '../../services/api';
+import { Html5QrcodeScanner } from 'html5-qrcode';
 
 function Abonos() {
   const navigate = useNavigate();
@@ -25,9 +27,19 @@ function Abonos() {
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({
     usuarioId: '',
-    tipoAbono: 'mensual',
+    tipoAbono: '',
     precio: 0
   });
+
+  // Estados para escáner QR
+  const [showScannerModal, setShowScannerModal] = useState(false);
+  const [scannerError, setScannerError] = useState('');
+  const scannerRef = useRef(null);
+  const html5QrcodeScannerRef = useRef(null);
+
+  // ✅ NUEVO: Modal de confirmación con foto
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [usuarioEscaneado, setUsuarioEscaneado] = useState(null);
 
   // Modal historial
   const [showHistorial, setShowHistorial] = useState(false);
@@ -35,30 +47,61 @@ function Abonos() {
   const [abonosHistorial, setAbonosHistorial] = useState([]);
   const [loadingHistorial, setLoadingHistorial] = useState(false);
 
-  // ============================================================================
-  // NUEVO: Estados para modales de éxito y pago
-  // ============================================================================
+  // Estados para modales de éxito y pago
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successData, setSuccessData] = useState(null);
-  const [successType, setSuccessType] = useState('create'); // 'create' o 'payment'
+  const [successType, setSuccessType] = useState('create');
 
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [abonoToPay, setAbonoToPay] = useState(null);
   const [metodoPago, setMetodoPago] = useState('');
 
-  // Precios sugeridos por tipo
-  const preciosSugeridos = {
-    mensual: 5000,
-    trimestral: 14000,
-    semestral: 26000,
-    anual: 48000
-  };
+  // Tipos de abono dinámicos
+  const [tiposFiltro, setTiposFiltro] = useState([]);
+  const [tiposAbono, setTiposAbono] = useState([]);
+  const [tiposAbonoMap, setTiposAbonoMap] = useState({});
 
   // ============================================================================
   // FUNCIONES DE CARGA
   // ============================================================================
+
+  const cargarTiposFiltro = async () => {
+    try {
+      const response = await api.get('/abonos/tipos-unicos');
+      if (response.data.success) {
+        setTiposFiltro(response.data.tipos);
+      }
+    } catch (err) {
+      console.error('Error al cargar tipos para filtro:', err);
+    }
+  };
+
+  const cargarTiposAbono = async () => {
+    try {
+      const response = await api.get('/configuracion');
+      if (response.data.success) {
+        const tipos = response.data.configuracion.tiposAbono.filter(t => t.activo);
+        setTiposAbono(tipos);
+        
+        const map = {};
+        response.data.configuracion.tiposAbono.forEach(tipo => {
+          map[tipo.id] = tipo;
+        });
+        setTiposAbonoMap(map);
+        
+        if (tipos.length > 0) {
+          setFormData(prev => ({
+            ...prev,
+            tipoAbono: tipos[0].id,
+            precio: tipos[0].precio
+          }));
+        }
+      }
+    } catch (err) {
+      console.error('Error al cargar tipos de abono:', err);
+    }
+  };
   
-  // Cargar abonos
   const cargarAbonos = async () => {
     try {
       setLoading(true);
@@ -87,7 +130,6 @@ function Abonos() {
     }
   };
 
-  // Cargar lista de usuarios para el select
   const cargarUsuarios = async () => {
     try {
       const data = await userService.getUsers({ limit: 1000 });
@@ -97,7 +139,6 @@ function Abonos() {
     }
   };
 
-  // Cargar historial de un usuario específico
   const cargarHistorialUsuario = async (usuario) => {
     try {
       setLoadingHistorial(true);
@@ -118,8 +159,104 @@ function Abonos() {
   };
 
   // ============================================================================
+  // FUNCIONES DE ESCÁNER QR
+  // ============================================================================
+
+  const iniciarScanner = () => {
+    setShowScannerModal(true);
+    setScannerError('');
+    
+    setTimeout(() => {
+      if (!html5QrcodeScannerRef.current) {
+        html5QrcodeScannerRef.current = new Html5QrcodeScanner(
+          "qr-reader",
+          { 
+            fps: 10,
+            qrbox: { width: 250, height: 250 },
+            aspectRatio: 1.0
+          },
+          false
+        );
+        
+        html5QrcodeScannerRef.current.render(onScanSuccess, onScanError);
+      }
+    }, 100);
+  };
+
+  const onScanSuccess = async (decodedText) => {
+    console.log('QR escaneado:', decodedText);
+    
+    try {
+      const response = await api.get(`/users/qr/${decodedText}`);
+      
+      if (response.data.usuario) {
+        const usuario = response.data.usuario;
+        
+        // Cerrar scanner
+        detenerScanner();
+        setShowScannerModal(false);
+        
+        // ✅ NUEVO: Mostrar modal de confirmación con foto
+        setUsuarioEscaneado(usuario);
+        setShowConfirmModal(true);
+      }
+    } catch (err) {
+      console.error('Error al buscar usuario:', err);
+      setScannerError('Usuario no encontrado. Verifica el código QR.');
+    }
+  };
+
+  const onScanError = (error) => {
+    if (!error.includes('NotFoundException')) {
+      console.warn('Error en scanner:', error);
+    }
+  };
+
+  const detenerScanner = () => {
+    if (html5QrcodeScannerRef.current) {
+      html5QrcodeScannerRef.current.clear().catch(err => {
+        console.error('Error al limpiar scanner:', err);
+      });
+      html5QrcodeScannerRef.current = null;
+    }
+  };
+
+  const cerrarScanner = () => {
+    detenerScanner();
+    setShowScannerModal(false);
+    setScannerError('');
+  };
+
+  // ✅ NUEVO: Confirmar usuario y abrir modal de crear abono
+  const confirmarUsuarioEscaneado = async () => {
+    if (!usuarioEscaneado) return;
+
+    // Cargar lista de usuarios si no está cargada
+    if (usuarios.length === 0) {
+      await cargarUsuarios();
+    }
+    
+    // Abrir modal de crear abono con usuario pre-seleccionado
+    if (tiposAbono.length > 0) {
+      setFormData({
+        usuarioId: usuarioEscaneado._id,
+        tipoAbono: tiposAbono[0].id,
+        precio: tiposAbono[0].precio
+      });
+    }
+    
+    setShowConfirmModal(false);
+    setShowModal(true);
+  };
+
+  // ============================================================================
   // EFFECTS
   // ============================================================================
+
+  useEffect(() => {
+    cargarTiposAbono();
+    cargarTiposFiltro();
+  }, []);
   
   useEffect(() => {
     cargarAbonos();
@@ -138,482 +275,599 @@ function Abonos() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
+  useEffect(() => {
+    return () => {
+      detenerScanner();
+    };
+  }, []);
+
   // ============================================================================
   // HANDLERS DE MODALES
   // ============================================================================
 
-  // Abrir modal para crear
   const handleCrear = async () => {
     await cargarUsuarios();
-    setFormData({
-      usuarioId: '',
-      tipoAbono: 'mensual',
-      precio: preciosSugeridos.mensual
-    });
+    if (tiposAbono.length > 0) {
+      setFormData({
+        usuarioId: '',
+        tipoAbono: tiposAbono[0].id,
+        precio: tiposAbono[0].precio
+      });
+    }
     setShowModal(true);
   };
 
-  // Cambiar tipo de abono y actualizar precio sugerido
-  const handleTipoChange = (tipo) => {
-    setFormData({
-      ...formData,
-      tipoAbono: tipo,
-      precio: preciosSugeridos[tipo]
-    });
+  const handleTipoChange = (tipoId) => {
+    const tipo = tiposAbonoMap[tipoId];
+    if (tipo) {
+      setFormData({
+        ...formData,
+        tipoAbono: tipoId,
+        precio: tipo.precio
+      });
+    }
   };
 
-  // ============================================================================
-  // NUEVO: Guardar abono con modal de éxito
-  // ============================================================================
-  const handleGuardar = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     if (!formData.usuarioId) {
-      alert('Debe seleccionar un usuario');
+      alert('Debes seleccionar un usuario');
       return;
     }
 
     try {
-      const response = await abonoService.createAbono(formData);
+      const data = await abonoService.createAbono(formData);
       
-      // Buscar datos del usuario seleccionado
-      const usuarioSeleccionado = usuarios.find(u => u._id === formData.usuarioId);
-      
-      // Preparar datos para modal de éxito
-      setSuccessData({
-        usuario: usuarioSeleccionado,
-        tipoAbono: formData.tipoAbono,
-        precio: formData.precio,
-        abono: response.abono
-      });
-      
-      setSuccessType('create');
       setShowModal(false);
+      setSuccessData(data.abono);
+      setSuccessType('create');
       setShowSuccessModal(true);
-      cargarAbonos();
       
+      cargarAbonos();
     } catch (err) {
-      alert(err.response?.data?.message || 'Error al crear abono');
+      console.error('Error al crear abono:', err);
+      alert(err.response?.data?.message || 'Error al crear el abono');
     }
   };
 
-  // ============================================================================
-  // NUEVO: Abrir modal de pago (reemplaza el prompt)
-  // ============================================================================
-  const handleMarcarPagado = (abono) => {
+  const handleAbrirPago = (abono) => {
     setAbonoToPay(abono);
     setMetodoPago('');
     setShowPaymentModal(true);
   };
 
-  // ============================================================================
-  // NUEVO: Confirmar pago con modal de éxito
-  // ============================================================================
-  const handleConfirmPayment = async () => {
+  const handleMarcarPagado = async () => {
     if (!metodoPago) {
-      alert('Debe seleccionar un método de pago');
+      alert('Debes seleccionar un método de pago');
       return;
     }
 
     try {
-      await abonoService.marcarComoPagado(abonoToPay._id, metodoPago);
-      
-      // Preparar datos para modal de éxito
-      setSuccessData({
-        usuario: abonoToPay.usuario,
-        tipoAbono: abonoToPay.tipoAbono,
-        precio: abonoToPay.precio,
-        metodoPago: metodoPago,
-        fechaInicio: abonoToPay.fechaInicio,
-        fechaFin: abonoToPay.fechaFin
+      const data = await abonoService.marcarComoPagado(abonoToPay._id, {
+        metodoPago
       });
       
-      setSuccessType('payment');
       setShowPaymentModal(false);
+      setSuccessData(data.abono);
+      setSuccessType('payment');
       setShowSuccessModal(true);
-      cargarAbonos();
       
+      cargarAbonos();
     } catch (err) {
-      alert('Error al marcar como pagado');
+      console.error('Error al marcar como pagado:', err);
+      alert(err.response?.data?.message || 'Error al procesar el pago');
+    }
+  };
+
+  const handleEliminar = async (abonoId) => {
+    if (!confirm('¿Estás seguro de eliminar este abono?')) return;
+
+    try {
+      await abonoService.deleteAbono(abonoId);
+      cargarAbonos();
+      alert('Abono eliminado correctamente');
+    } catch (err) {
+      console.error('Error al eliminar:', err);
+      alert(err.response?.data?.message || 'Error al eliminar el abono');
     }
   };
 
   // ============================================================================
-  // FUNCIONES DE UTILIDAD
+  // UTILIDADES
   // ============================================================================
 
-  // Formatear fecha
+  const formatPrecio = (precio) => {
+    return new Intl.NumberFormat('es-AR', {
+      style: 'currency',
+      currency: 'ARS',
+      minimumFractionDigits: 0
+    }).format(precio);
+  };
+
   const formatFecha = (fecha) => {
     return new Date(fecha).toLocaleDateString('es-AR');
   };
 
-  // Formatear precio
-  const formatPrecio = (precio) => {
-    return new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency: 'ARS'
-    }).format(precio);
-  };
-
-  // Calcular días restantes
-  const calcularDiasRestantes = (fechaFin) => {
-    const hoy = new Date();
-    const fin = new Date(fechaFin);
-    const diferencia = fin - hoy;
-    const dias = Math.ceil(diferencia / (1000 * 60 * 60 * 24));
-    return dias > 0 ? dias : 0;
-  };
-
-  // Obtener estado del abono
-  const obtenerEstadoAbono = (abono) => {
-    if (!abono.pagado) {
-      return {
-        texto: 'Pendiente',
-        color: 'bg-yellow-100 text-yellow-800'
-      };
-    }
-
-    const diasRestantes = calcularDiasRestantes(abono.fechaFin);
-    
-    if (diasRestantes === 0) {
-      return {
-        texto: 'Vencido',
-        color: 'bg-red-100 text-red-800'
-      };
-    }
-
-    if (diasRestantes <= 3) {
-      return {
-        texto: 'Por vencer',
-        color: 'bg-orange-100 text-orange-800'
-      };
-    }
-
-    return {
-      texto: 'Activo',
-      color: 'bg-green-100 text-green-800'
+  const getBadgeColor = (tipo) => {
+    const colors = {
+      'diario': 'bg-purple-100 text-purple-800',
+      'mensual': 'bg-blue-100 text-blue-800',
+      'trimestral': 'bg-green-100 text-green-800',
+      'semestral': 'bg-yellow-100 text-yellow-800',
+      'anual': 'bg-red-100 text-red-800'
     };
+    return colors[tipo] || 'bg-gray-100 text-gray-800';
   };
 
-  // Obtener icono según método de pago
   const getMetodoPagoIcon = (metodo) => {
-    switch(metodo) {
-      case 'efectivo':
-        return '💵';
-      case 'mercadopago':
-        return '💳';
-      case 'transferencia':
-        return '🏦';
-      default:
-        return '💰';
-    }
+    const icons = {
+      efectivo: '💵',
+      mercadopago: '💳',
+      transferencia: '🏦',
+      pendiente: '⏳'
+    };
+    return icons[metodo] || '❓';
   };
 
   // ============================================================================
   // RENDER
   // ============================================================================
-  
+
+  if (loading && abonos.length === 0) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <p className="mt-4 text-gray-600">Cargando abonos...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <div>
+      <nav className="bg-white shadow-md">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() => navigate('/admin/dashboard')}
+                className="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg flex items-center justify-center hover:opacity-80 transition"
+              >
+                <span className="text-white text-xl font-bold">←</span>
+              </button>
+              <div>
+                <h1 className="text-xl font-bold text-gray-800">Gestión de Abonos</h1>
+                <p className="text-xs text-gray-500">Panel de Administración</p>
+              </div>
+            </div>
+            
             <button
-              onClick={() => navigate('/admin/dashboard')}
-              className="text-blue-600 hover:text-blue-800 mb-2"
+              onClick={logout}
+              className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors text-sm font-medium"
             >
-              ← Volver al Dashboard
+              Salir
             </button>
-            <h1 className="text-2xl font-bold text-gray-900">Gestión de Abonos</h1>
           </div>
-          <button
-            onClick={logout}
-            className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-          >
-            Cerrar Sesión
-          </button>
         </div>
-      </header>
+      </nav>
 
-      <main className="max-w-7xl mx-auto px-4 py-8">
-        {/* Barra de acciones */}
-        <div className="bg-white rounded-lg shadow p-4 mb-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            {/* Búsqueda */}
-            <input
-              type="text"
-              placeholder="Buscar por usuario..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-            />
-
-            {/* Filtros */}
-            <select
-              value={filtroTipo}
-              onChange={(e) => setFiltroTipo(e.target.value)}
-              className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header con botones */}
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-800">Abonos</h2>
+            <p className="text-gray-600">Gestiona los abonos de los usuarios</p>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={iniciarScanner}
+              className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-lg font-medium shadow-md hover:shadow-lg transition-all flex items-center gap-2"
             >
-              <option value="">Todos los tipos</option>
-              <option value="mensual">Mensual</option>
-              <option value="trimestral">Trimestral</option>
-              <option value="semestral">Semestral</option>
-              <option value="anual">Anual</option>
-            </select>
-
-            <select
-              value={filtroPagado}
-              onChange={(e) => setFiltroPagado(e.target.value)}
-              className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-            >
-              <option value="">Todos los estados</option>
-              <option value="pagado">Pagados</option>
-              <option value="pendiente">Pendientes</option>
-            </select>
-
-            {/* Botón crear */}
+              <span className="text-xl">📱</span>
+              <span>Escanear QR</span>
+            </button>
+            
             <button
               onClick={handleCrear}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 whitespace-nowrap"
+              className="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg font-medium shadow-md hover:shadow-lg transition-all"
             >
-              + Nuevo Abono
+              ➕ Crear Abono
             </button>
+          </div>
+        </div>
+
+        {/* Filtros y búsqueda */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Buscar por DNI o Nombre
+              </label>
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar..."
+                className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Tipo de Abono
+              </label>
+              <select
+                value={filtroTipo}
+                onChange={(e) => setFiltroTipo(e.target.value)}
+                className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">Todos</option>
+                {tiposFiltro.map(tipo => (
+                  <option key={tipo.id} value={tipo.id}>
+                    {tipo.nombre}
+                    {tipo.historico && !tipo.activo && ' (⚠️ Descontinuado)'}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Estado de Pago
+              </label>
+              <select
+                value={filtroPagado}
+                onChange={(e) => setFiltroPagado(e.target.value)}
+                className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">Todos</option>
+                <option value="pagado">Pagado</option>
+                <option value="pendiente">Pendiente</option>
+              </select>
+            </div>
+
+            <div className="flex items-end">
+              <button
+                onClick={() => {
+                  setSearch('');
+                  setFiltroTipo('');
+                  setFiltroPagado('');
+                }}
+                className="w-full px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition-colors font-medium"
+              >
+                🔄 Limpiar Filtros
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Tabla de abonos */}
-        {loading ? (
-          <div className="bg-white rounded-lg shadow p-8 text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Cargando abonos...</p>
-          </div>
-        ) : error ? (
-          <div className="bg-white rounded-lg shadow p-8 text-center">
-            <p className="text-red-600">{error}</p>
-            <button 
-              onClick={cargarAbonos}
-              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-            >
-              Reintentar
-            </button>
-          </div>
-        ) : abonos.length === 0 ? (
-          <div className="bg-white rounded-lg shadow p-8 text-center">
-            <p className="text-gray-600">No se encontraron abonos</p>
-          </div>
-        ) : (
-          <>
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Usuario</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Precio</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vigencia</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {abonos.map((abono) => {
-                    const estado = obtenerEstadoAbono(abono);
-                    return (
-                      <tr key={abono._id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="font-medium text-gray-900">
-                            {abono.usuario?.nombre} {abono.usuario?.apellido}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {abono.usuario?.email}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 capitalize">
-                            {abono.tipoAbono}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {formatPrecio(abono.precio)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                          <div>{formatFecha(abono.fechaInicio)}</div>
-                          <div className="text-xs text-gray-500">hasta {formatFecha(abono.fechaFin)}</div>
-                          {abono.pagado && (
-                            <div className="text-xs text-purple-600 font-medium mt-1">
-                              {calcularDiasRestantes(abono.fechaFin)} días restantes
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-2 py-1 text-xs rounded-full ${estado.color}`}>
-                            {estado.texto}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
-                          {!abono.pagado && (
-                            <button
-                              onClick={() => handleMarcarPagado(abono)}
-                              className="text-green-600 hover:text-green-900"
-                            >
-                              Marcar Pagado
-                            </button>
-                          )}
-                          <button
-                            onClick={() => cargarHistorialUsuario(abono.usuario)}
-                            className="text-blue-600 hover:text-blue-900"
-                          >
-                            Ver Historial
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          {error && (
+            <div className="bg-red-50 border-l-4 border-red-500 p-4">
+              <p className="text-red-800">{error}</p>
             </div>
+          )}
 
-            {/* Paginación */}
-            <div className="mt-4 flex justify-center gap-2">
-              <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="px-4 py-2 border rounded hover:bg-gray-50 disabled:opacity-50"
-              >
-                Anterior
-              </button>
-              <span className="px-4 py-2">
-                Página {page} de {totalPages}
-              </span>
-              <button
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-                className="px-4 py-2 border rounded hover:bg-gray-50 disabled:opacity-50"
-              >
-                Siguiente
-              </button>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Usuario
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Tipo
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Precio
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Vigencia
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Pago
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Acciones
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {abonos.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
+                      No se encontraron abonos
+                    </td>
+                  </tr>
+                ) : (
+                  abonos.map((abono) => (
+                    <tr key={abono._id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          {abono.usuario?.nombre} {abono.usuario?.apellido}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          DNI: {abono.usuario?.dni}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getBadgeColor(abono.tipoAbono)}`}>
+                          {tiposAbonoMap[abono.tipoAbono]?.nombre || abono.tipoAbono}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {formatPrecio(abono.precio)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <div>{formatFecha(abono.fechaInicio)}</div>
+                        <div>{formatFecha(abono.fechaFin)}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {abono.pagado ? (
+                          <div>
+                            <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                              {getMetodoPagoIcon(abono.metodoPago)} Pagado
+                            </span>
+                            <div className="text-xs text-gray-500 mt-1">
+                              {formatFecha(abono.fechaPago)}
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => handleAbrirPago(abono)}
+                            className="px-3 py-1 bg-yellow-500 hover:bg-yellow-600 text-white text-xs font-semibold rounded-full transition-colors"
+                          >
+                            ⏳ Marcar Pagado
+                          </button>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button
+                          onClick={() => handleEliminar(abono._id)}
+                          className="text-red-600 hover:text-red-900 mr-3"
+                        >
+                          🗑️
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Paginación */}
+          {totalPages > 1 && (
+            <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+              <div className="flex-1 flex justify-between sm:hidden">
+                <button
+                  onClick={() => setPage(page - 1)}
+                  disabled={page === 1}
+                  className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Anterior
+                </button>
+                <button
+                  onClick={() => setPage(page + 1)}
+                  disabled={page === totalPages}
+                  className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Siguiente
+                </button>
+              </div>
+              <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm text-gray-700">
+                    Página <span className="font-medium">{page}</span> de{' '}
+                    <span className="font-medium">{totalPages}</span>
+                  </p>
+                </div>
+                <div>
+                  <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                    <button
+                      onClick={() => setPage(page - 1)}
+                      disabled={page === 1}
+                      className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      ←
+                    </button>
+                    <button
+                      onClick={() => setPage(page + 1)}
+                      disabled={page === totalPages}
+                      className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      →
+                    </button>
+                  </nav>
+                </div>
+              </div>
             </div>
-          </>
-        )}
+          )}
+        </div>
       </main>
 
-      {/* ========================================================================
-          ✨ MODAL MEJORADO: CREAR ABONO ✨
-      ======================================================================== */}
-      {showModal && (
+      {/* Modal Escáner QR */}
+      {showScannerModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl animate-[fadeIn_0.3s_ease-in-out]">
-            
-            {/* Header con gradiente */}
-            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-6 rounded-t-2xl">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl">
+            <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-6 rounded-t-2xl">
               <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg">
-                    <span className="text-3xl">🎫</span>
-                  </div>
-                  <div>
-                    <h2 className="text-2xl font-bold text-white">Nuevo Abono</h2>
-                    <p className="text-blue-100 text-sm">Crea un abono para un usuario</p>
-                  </div>
-                </div>
+                <h2 className="text-2xl font-bold text-white">📱 Escanear QR del Usuario</h2>
                 <button
-                  onClick={() => setShowModal(false)}
+                  onClick={cerrarScanner}
                   className="text-white hover:bg-white hover:bg-opacity-20 rounded-full w-8 h-8 flex items-center justify-center transition-all"
                 >
                   ✕
                 </button>
               </div>
             </div>
-            
-            {/* Contenido del formulario */}
-            <form onSubmit={handleGuardar} className="p-6 space-y-4">
-              
-              {/* Usuario */}
+
+            <div className="p-6">
+              {scannerError && (
+                <div className="mb-4 bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                  <p className="text-red-800 font-medium">❌ {scannerError}</p>
+                </div>
+              )}
+
+              <div className="bg-gray-100 rounded-lg p-4 mb-4">
+                <p className="text-sm text-gray-700 mb-2">
+                  <strong>Instrucciones:</strong>
+                </p>
+                <ul className="text-sm text-gray-600 space-y-1">
+                  <li>• Coloca el código QR del usuario frente a la cámara</li>
+                  <li>• Espera a que se escanee automáticamente</li>
+                  <li>• Se abrirá el formulario con el usuario seleccionado</li>
+                </ul>
+              </div>
+
+              <div id="qr-reader" className="w-full"></div>
+
+              <button
+                onClick={cerrarScanner}
+                className="w-full mt-4 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ NUEVO: Modal de Confirmación con Foto */}
+      {showConfirmModal && usuarioEscaneado && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl">
+            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-6 rounded-t-2xl text-center">
+              <h2 className="text-2xl font-bold text-white mb-2">✅ Usuario Identificado</h2>
+              <p className="text-blue-100">Verifica que sea la persona correcta</p>
+            </div>
+
+            <div className="p-6">
+              <div className="flex flex-col items-center mb-6">
+                <img
+                  src={usuarioEscaneado.fotoPerfil || `https://ui-avatars.com/api/?name=${usuarioEscaneado.nombre}+${usuarioEscaneado.apellido}&background=3B82F6&color=fff&size=200`}
+                  alt={`${usuarioEscaneado.nombre} ${usuarioEscaneado.apellido}`}
+                  className="w-32 h-32 rounded-full object-cover border-4 border-blue-500 shadow-lg mb-4"
+                />
+                <h3 className="text-2xl font-bold text-gray-900">
+                  {usuarioEscaneado.nombre} {usuarioEscaneado.apellido}
+                </h3>
+                <p className="text-gray-600 mt-1">DNI: {usuarioEscaneado.dni}</p>
+                <p className="text-gray-500 text-sm">{usuarioEscaneado.email}</p>
+              </div>
+
+              <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4 mb-4">
+                <p className="text-sm text-blue-800 text-center">
+                  <strong>¿Es esta la persona correcta?</strong>
+                </p>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowConfirmModal(false);
+                    setUsuarioEscaneado(null);
+                  }}
+                  className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                >
+                  ✕ Cancelar
+                </button>
+                <button
+                  onClick={confirmarUsuarioEscaneado}
+                  className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-lg transition-colors font-medium"
+                >
+                  ✓ Confirmar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Crear Abono */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl">
+            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-6 rounded-t-2xl">
+              <h2 className="text-2xl font-bold text-white">➕ Crear Nuevo Abono</h2>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-semibold mb-2 text-gray-700 flex items-center">
-                  <span className="mr-2">👤</span> Usuario *
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Usuario *
                 </label>
                 <select
                   required
                   value={formData.usuarioId}
-                  onChange={(e) => setFormData({...formData, usuarioId: e.target.value})}
-                  className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white"
+                  onChange={(e) => setFormData({ ...formData, usuarioId: e.target.value })}
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                  <option value="">Seleccione un usuario</option>
-                  {usuarios.map((usuario) => (
-                    <option key={usuario._id} value={usuario._id}>
-                      {usuario.nombre} {usuario.apellido} - {usuario.email}
+                  <option value="">Selecciona un usuario</option>
+                  {usuarios.map((user) => (
+                    <option key={user._id} value={user._id}>
+                      {user.nombre} {user.apellido} - DNI: {user.dni}
                     </option>
                   ))}
                 </select>
               </div>
 
-              {/* Tipo de Abono */}
               <div>
-                <label className="block text-sm font-semibold mb-2 text-gray-700 flex items-center">
-                  <span className="mr-2">📅</span> Tipo de Abono *
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Tipo de Abono *
                 </label>
                 <select
+                  required
                   value={formData.tipoAbono}
                   onChange={(e) => handleTipoChange(e.target.value)}
-                  className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white"
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                  <option value="mensual">📆 Mensual (1 mes)</option>
-                  <option value="trimestral">📆 Trimestral (3 meses)</option>
-                  <option value="semestral">📆 Semestral (6 meses)</option>
-                  <option value="anual">📆 Anual (12 meses)</option>
+                  {tiposAbono.map((tipo) => (
+                    <option key={tipo.id} value={tipo.id}>
+                      {tipo.nombre} - {tipo.duracionDias} días
+                    </option>
+                  ))}
                 </select>
               </div>
 
-              {/* Precio */}
               <div>
-                <label className="block text-sm font-semibold mb-2 text-gray-700 flex items-center">
-                  <span className="mr-2">💰</span> Precio *
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Precio del Abono
                 </label>
-                <input
-                  type="number"
-                  required
-                  min="0"
-                  value={formData.precio}
-                  onChange={(e) => setFormData({...formData, precio: parseFloat(e.target.value)})}
-                  className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                  placeholder="0.00"
-                />
-                <p className="text-xs text-gray-500 mt-1 flex items-center">
-                  <span className="mr-1">💡</span>
-                  Precio sugerido: <strong className="ml-1">{formatPrecio(preciosSugeridos[formData.tipoAbono])}</strong>
-                </p>
-              </div>
-
-              {/* Nota informativa */}
-              <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
-                <div className="flex items-start">
-                  <span className="text-2xl mr-3">ℹ️</span>
-                  <div className="flex-1">
-                    <p className="text-xs text-blue-700 font-bold uppercase mb-1">Importante</p>
-                    <p className="text-sm text-gray-700">
-                      El abono comenzará hoy y finalizará según el tipo seleccionado. 
-                      El usuario deberá realizar el pago para activarlo.
-                    </p>
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Precio configurado:</p>
+                      <p className="text-3xl font-bold text-blue-600">
+                        {formatPrecio(tiposAbonoMap[formData.tipoAbono]?.precio || 0)}
+                      </p>
+                    </div>
+                    <div className="text-5xl">💰</div>
                   </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Este precio está definido en la configuración del sistema
+                  </p>
                 </div>
               </div>
 
-              {/* Botones */}
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="submit"
-                  className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-bold rounded-lg transition-all shadow-md hover:shadow-lg"
-                >
-                  ✨ Crear Abono
-                </button>
+              <div className="flex gap-3 pt-4">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="flex-1 px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold rounded-lg transition-all"
+                  className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
                 >
                   Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-lg transition-colors font-medium"
+                >
+                  ✅ Crear Abono
                 </button>
               </div>
             </form>
@@ -621,433 +875,79 @@ function Abonos() {
         </div>
       )}
 
-      {/* ========================================================================
-          ✨ NUEVO: MODAL DE MÉTODO DE PAGO ✨
-          Reemplaza el prompt() feo por un modal moderno
-      ======================================================================== */}
+      {/* Modal Marcar Pagado */}
       {showPaymentModal && abonoToPay && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden animate-[fadeIn_0.3s_ease-in-out]">
-            
-            {/* Header verde */}
-            <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-6 text-center">
-              <div className="w-20 h-20 bg-white rounded-full mx-auto mb-4 flex items-center justify-center shadow-lg">
-                <span className="text-5xl">💳</span>
-              </div>
-              <h2 className="text-2xl font-bold text-white mb-2">
-                Registrar Pago
-              </h2>
-              <p className="text-green-50 text-sm">
-                Selecciona el método de pago utilizado
-              </p>
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl">
+            <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-6 rounded-t-2xl">
+              <h2 className="text-2xl font-bold text-white">💳 Registrar Pago</h2>
             </div>
 
-            {/* Contenido */}
             <div className="p-6 space-y-4">
-              
-              {/* Info del abono */}
               <div className="bg-gray-50 rounded-lg p-4">
-                <p className="text-sm text-gray-600 mb-2">Abono a pagar:</p>
-                <div className="flex justify-between items-center mb-1">
-                  <span className="font-bold text-gray-800">
-                    {abonoToPay.usuario?.nombre} {abonoToPay.usuario?.apellido}
-                  </span>
-                  <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded-full capitalize">
-                    {abonoToPay.tipoAbono}
-                  </span>
-                </div>
-                <p className="text-2xl font-bold text-green-600">
-                  {formatPrecio(abonoToPay.precio)}
-                </p>
+                <p className="text-sm text-gray-600">Usuario:</p>
+                <p className="font-semibold">{abonoToPay.usuario?.nombre} {abonoToPay.usuario?.apellido}</p>
+                <p className="text-sm text-gray-600 mt-2">Monto:</p>
+                <p className="font-semibold text-lg">{formatPrecio(abonoToPay.precio)}</p>
               </div>
 
-              {/* Selector de método de pago */}
               <div>
-                <label className="block text-sm font-semibold mb-3 text-gray-700">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Método de Pago *
                 </label>
-                <div className="space-y-2">
-                  
-                  {/* Efectivo */}
-                  <label className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                    metodoPago === 'efectivo' 
-                      ? 'border-green-500 bg-green-50' 
-                      : 'border-gray-200 hover:border-green-300'
-                  }`}>
-                    <input
-                      type="radio"
-                      name="metodoPago"
-                      value="efectivo"
-                      checked={metodoPago === 'efectivo'}
-                      onChange={(e) => setMetodoPago(e.target.value)}
-                      className="w-5 h-5 text-green-600"
-                    />
-                    <div className="ml-3 flex-1 flex items-center justify-between">
-                      <div className="flex items-center">
-                        <span className="text-2xl mr-3">💵</span>
-                        <span className="font-semibold text-gray-800">Efectivo</span>
-                      </div>
-                      {metodoPago === 'efectivo' && <span className="text-green-600">✓</span>}
-                    </div>
-                  </label>
-
-                  {/* Mercado Pago */}
-                  <label className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                    metodoPago === 'mercadopago' 
-                      ? 'border-green-500 bg-green-50' 
-                      : 'border-gray-200 hover:border-green-300'
-                  }`}>
-                    <input
-                      type="radio"
-                      name="metodoPago"
-                      value="mercadopago"
-                      checked={metodoPago === 'mercadopago'}
-                      onChange={(e) => setMetodoPago(e.target.value)}
-                      className="w-5 h-5 text-green-600"
-                    />
-                    <div className="ml-3 flex-1 flex items-center justify-between">
-                      <div className="flex items-center">
-                        <span className="text-2xl mr-3">💳</span>
-                        <span className="font-semibold text-gray-800">Mercado Pago</span>
-                      </div>
-                      {metodoPago === 'mercadopago' && <span className="text-green-600">✓</span>}
-                    </div>
-                  </label>
-
-                  {/* Transferencia */}
-                  <label className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                    metodoPago === 'transferencia' 
-                      ? 'border-green-500 bg-green-50' 
-                      : 'border-gray-200 hover:border-green-300'
-                  }`}>
-                    <input
-                      type="radio"
-                      name="metodoPago"
-                      value="transferencia"
-                      checked={metodoPago === 'transferencia'}
-                      onChange={(e) => setMetodoPago(e.target.value)}
-                      className="w-5 h-5 text-green-600"
-                    />
-                    <div className="ml-3 flex-1 flex items-center justify-between">
-                      <div className="flex items-center">
-                        <span className="text-2xl mr-3">🏦</span>
-                        <span className="font-semibold text-gray-800">Transferencia</span>
-                      </div>
-                      {metodoPago === 'transferencia' && <span className="text-green-600">✓</span>}
-                    </div>
-                  </label>
-                </div>
+                <select
+                  value={metodoPago}
+                  onChange={(e) => setMetodoPago(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                >
+                  <option value="">Seleccionar método</option>
+                  <option value="efectivo">💵 Efectivo</option>
+                  <option value="mercadopago">💳 MercadoPago</option>
+                  <option value="transferencia">🏦 Transferencia</option>
+                </select>
               </div>
 
-              {/* Botones */}
-              <div className="flex gap-3 pt-2">
+              <div className="flex gap-3 pt-4">
                 <button
-                  type="button"
-                  onClick={handleConfirmPayment}
-                  disabled={!metodoPago}
-                  className="flex-1 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold rounded-lg transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  ✓ Confirmar Pago
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowPaymentModal(false);
-                    setAbonoToPay(null);
-                    setMetodoPago('');
-                  }}
-                  className="flex-1 px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold rounded-lg transition-all"
+                  onClick={() => setShowPaymentModal(false)}
+                  className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
                 >
                   Cancelar
                 </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================
-          ✨ NUEVO: MODAL DE ÉXITO UNIFICADO ✨
-          Para creación de abono y registro de pago
-      ======================================================================== */}
-      {showSuccessModal && successData && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-md w-full overflow-hidden shadow-2xl animate-[fadeIn_0.3s_ease-in-out]">
-            
-            {/* Header dinámico */}
-            <div className={`p-6 text-center ${
-              successType === 'create'
-                ? 'bg-gradient-to-r from-blue-500 to-indigo-600'
-                : 'bg-gradient-to-r from-green-500 to-emerald-600'
-            }`}>
-              <div className="w-20 h-20 bg-white rounded-full mx-auto mb-4 flex items-center justify-center shadow-lg">
-                <span className="text-5xl">{successType === 'create' ? '🎫' : '✅'}</span>
-              </div>
-              <h2 className="text-2xl font-bold text-white mb-2">
-                {successType === 'create' ? '¡Abono Creado!' : '¡Pago Registrado!'}
-              </h2>
-              <p className={`text-sm ${
-                successType === 'create' ? 'text-blue-50' : 'text-green-50'
-              }`}>
-                {successType === 'create' 
-                  ? 'El abono ha sido creado exitosamente'
-                  : 'El pago ha sido registrado correctamente'}
-              </p>
-            </div>
-
-            {/* Contenido */}
-            <div className="p-6 space-y-4">
-              
-              {/* Info del usuario */}
-              <div className="text-center">
-                <h3 className="text-2xl font-bold text-gray-800">
-                  {successData.usuario?.nombre} {successData.usuario?.apellido}
-                </h3>
-                <p className="text-sm text-gray-500 mt-1">{successData.usuario?.email}</p>
-              </div>
-
-              {/* Detalles del abono */}
-              <div className="space-y-3">
-                
-                {/* Tipo de abono */}
-                <div className="bg-gray-50 rounded-lg p-3 flex items-start">
-                  <span className="text-2xl mr-3">📅</span>
-                  <div className="flex-1">
-                    <p className="text-xs text-gray-500 font-medium">Tipo de Abono</p>
-                    <p className="text-sm text-gray-800 font-semibold capitalize">
-                      {successData.tipoAbono}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Precio */}
-                <div className="bg-gray-50 rounded-lg p-3 flex items-start">
-                  <span className="text-2xl mr-3">💰</span>
-                  <div className="flex-1">
-                    <p className="text-xs text-gray-500 font-medium">Precio</p>
-                    <p className="text-lg text-gray-800 font-bold">
-                      {formatPrecio(successData.precio)}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Método de pago (solo si es pago) */}
-                {successType === 'payment' && successData.metodoPago && (
-                  <div className="bg-green-50 rounded-lg p-3 flex items-start border-2 border-green-200">
-                    <span className="text-2xl mr-3">{getMetodoPagoIcon(successData.metodoPago)}</span>
-                    <div className="flex-1">
-                      <p className="text-xs text-green-600 font-medium">Método de Pago</p>
-                      <p className="text-sm text-gray-800 font-semibold capitalize">
-                        {successData.metodoPago}
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Vigencia */}
-                {successType === 'payment' && (
-                  <div className="bg-blue-50 rounded-lg p-3 border-2 border-blue-200">
-                    <div className="flex items-start">
-                      <span className="text-2xl mr-3">📆</span>
-                      <div className="flex-1">
-                        <p className="text-xs text-blue-600 font-medium mb-1">Vigencia del Abono</p>
-                        <div className="text-sm text-gray-700">
-                          <p>
-                            <strong>Desde:</strong> {formatFecha(successData.fechaInicio)}
-                          </p>
-                          <p>
-                            <strong>Hasta:</strong> {formatFecha(successData.fechaFin)}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Nota informativa según tipo */}
-                <div className={`rounded-lg p-4 border-2 ${
-                  successType === 'create'
-                    ? 'bg-yellow-50 border-yellow-200'
-                    : 'bg-green-50 border-green-200'
-                }`}>
-                  <div className="flex items-start">
-                    <span className="text-2xl mr-3">{successType === 'create' ? '⚠️' : 'ℹ️'}</span>
-                    <div className="flex-1">
-                      <p className={`text-xs font-bold uppercase mb-1 ${
-                        successType === 'create' ? 'text-yellow-700' : 'text-green-700'
-                      }`}>
-                        {successType === 'create' ? 'Pendiente de Pago' : 'Abono Activo'}
-                      </p>
-                      <p className="text-sm text-gray-700">
-                        {successType === 'create' 
-                          ? 'El abono está registrado pero pendiente de pago. Una vez que el usuario realice el pago, el abono se activará automáticamente.'
-                          : 'El abono ya está activo. El usuario puede acceder a todas las instalaciones durante el período de vigencia.'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Botón cerrar */}
-              <button
-                onClick={() => {
-                  setShowSuccessModal(false);
-                  setSuccessData(null);
-                }}
-                className={`w-full mt-6 py-3 text-white font-bold rounded-lg transition-all shadow-md hover:shadow-lg ${
-                  successType === 'create'
-                    ? 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700'
-                    : 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700'
-                }`}
-              >
-                ¡Entendido!
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================
-          MODAL HISTORIAL (SIN CAMBIOS - YA ESTABA BIEN)
-      ======================================================================== */}
-      {showHistorial && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="p-6 border-b">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900">
-                    📋 Historial de Abonos
-                  </h2>
-                  {historialUsuario && (
-                    <p className="text-gray-600 mt-1">
-                      {historialUsuario.nombre} {historialUsuario.apellido} - {historialUsuario.email}
-                    </p>
-                  )}
-                </div>
                 <button
-                  onClick={() => {
-                    setShowHistorial(false);
-                    setHistorialUsuario(null);
-                    setAbonosHistorial([]);
-                  }}
-                  className="text-gray-500 hover:text-gray-700 text-2xl"
+                  onClick={handleMarcarPagado}
+                  className="flex-1 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-lg transition-colors font-medium"
                 >
-                  ×
+                  ✅ Confirmar Pago
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
 
-            <div className="flex-1 overflow-y-auto p-6">
-              {loadingHistorial ? (
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-                  <p className="mt-4 text-gray-600">Cargando historial...</p>
-                </div>
-              ) : abonosHistorial.length === 0 ? (
-                <div className="text-center py-8">
-                  <div className="text-6xl mb-4">📭</div>
-                  <p className="text-gray-600">Este usuario no tiene abonos registrados</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {/* Resumen */}
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                    <div className="bg-blue-50 p-4 rounded-lg">
-                      <p className="text-sm text-blue-600 font-medium">Total Abonos</p>
-                      <p className="text-2xl font-bold text-blue-900">{abonosHistorial.length}</p>
-                    </div>
-                    <div className="bg-green-50 p-4 rounded-lg">
-                      <p className="text-sm text-green-600 font-medium">Pagados</p>
-                      <p className="text-2xl font-bold text-green-900">
-                        {abonosHistorial.filter(a => a.pagado).length}
-                      </p>
-                    </div>
-                    <div className="bg-yellow-50 p-4 rounded-lg">
-                      <p className="text-sm text-yellow-600 font-medium">Pendientes</p>
-                      <p className="text-2xl font-bold text-yellow-900">
-                        {abonosHistorial.filter(a => !a.pagado).length}
-                      </p>
-                    </div>
-                    <div className="bg-purple-50 p-4 rounded-lg">
-                      <p className="text-sm text-purple-600 font-medium">Total Recaudado</p>
-                      <p className="text-lg font-bold text-purple-900">
-                        {formatPrecio(abonosHistorial.filter(a => a.pagado).reduce((sum, a) => sum + a.precio, 0))}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Lista de abonos */}
-                  {abonosHistorial.map((abonoHist) => {
-                    const estadoHist = obtenerEstadoAbono(abonoHist);
-                    return (
-                      <div
-                        key={abonoHist._id}
-                        className="border rounded-lg p-4 hover:shadow-md transition"
-                      >
-                        <div className="flex justify-between items-start mb-3">
-                          <div>
-                            <span className="text-lg font-semibold capitalize">
-                              {abonoHist.tipoAbono}
-                            </span>
-                            <p className="text-sm text-gray-600">
-                              {formatFecha(abonoHist.fechaInicio)} - {formatFecha(abonoHist.fechaFin)}
-                            </p>
-                          </div>
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${estadoHist.color}`}>
-                            {estadoHist.texto}
-                          </span>
-                        </div>
-
-                        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
-                          <div>
-                            <p className="text-gray-600">Precio</p>
-                            <p className="font-semibold">{formatPrecio(abonoHist.precio)}</p>
-                          </div>
-                          <div>
-                            <p className="text-gray-600">Estado de Pago</p>
-                            <p className="font-semibold">
-                              {abonoHist.pagado ? '✓ Pagado' : '⏳ Pendiente'}
-                            </p>
-                          </div>
-                          {abonoHist.metodoPago && abonoHist.metodoPago !== 'pendiente' && (
-                            <div>
-                              <p className="text-gray-600">Método de Pago</p>
-                              <p className="font-semibold capitalize">{abonoHist.metodoPago}</p>
-                            </div>
-                          )}
-                          {abonoHist.pagado && (
-                            <>
-                              <div>
-                                <p className="text-gray-600">Fecha de Pago</p>
-                                <p className="font-semibold">{formatFecha(abonoHist.fechaPago)}</p>
-                              </div>
-                              <div>
-                                <p className="text-gray-600">Días Restantes</p>
-                                <p className="font-semibold">
-                                  {calcularDiasRestantes(abonoHist.fechaFin)} días
-                                </p>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+      {/* Modal de Éxito */}
+      {showSuccessModal && successData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl">
+            <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-8 text-center">
+              <div className="w-24 h-24 bg-white rounded-full mx-auto mb-4 flex items-center justify-center">
+                <span className="text-6xl">✅</span>
+              </div>
+              <h2 className="text-3xl font-bold text-white mb-2">
+                {successType === 'create' ? '¡Abono Creado!' : '¡Pago Registrado!'}
+              </h2>
+              <p className="text-green-50">
+                {successType === 'create' ? 'El abono se creó correctamente' : 'El pago se registró correctamente'}
+              </p>
             </div>
 
-            <div className="p-4 border-t bg-gray-50">
+            <div className="p-6">
               <button
-                onClick={() => {
-                  setShowHistorial(false);
-                  setHistorialUsuario(null);
-                  setAbonosHistorial([]);
-                }}
-                className="w-full px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+                onClick={() => setShowSuccessModal(false)}
+                className="w-full px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-lg transition-colors font-medium"
               >
-                Cerrar
+                ✓ Cerrar
               </button>
             </div>
           </div>

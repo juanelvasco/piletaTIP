@@ -12,12 +12,13 @@ import UserDashboard from './pages/user/Dashboard';
 import MiQR from './pages/user/MiQR';
 
 // Páginas de admin
-import AdminDashboard from './pages/admin/dashboard';
+import AdminDashboard from './pages/admin/Dashboard';
 import Usuarios from './pages/admin/Usuarios';
 import Abonos from './pages/admin/abonos';
 import EscanearQR from './pages/admin/EscanearQR';
 import Reportes from './pages/admin/Reportes';
-
+import PlanillaIngresos from './pages/admin/PlanillaIngresos';
+import ConfiguracionTarifas from './pages/admin/ConfiguracionTarifas'; // ← NUEVO
 
 // Páginas de enfermero
 import EnfermeroDashboard from './pages/enfermero/Dashboard';
@@ -100,10 +101,25 @@ function App() {
               </ProtectedRoute>
             }
           />
-          
-          {/* Por ahora, las otras rutas de admin redirigen al dashboard */}
-          <Route path="/admin/salud" element={<Navigate to="/admin/Dashboard" replace />} />
-          <Route path="/admin/reportes" element={<Navigate to="/admin/Dashboard" replace />} />
+
+          <Route
+            path="/admin/ingresos"
+            element={
+              <ProtectedRoute adminOnly={true}>
+                <PlanillaIngresos />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* ✅ NUEVA RUTA: Configuración de Tarifas */}
+          <Route
+            path="/admin/configuracion/tarifas"
+            element={
+              <ProtectedRoute adminOnly={true}>
+                <ConfiguracionTarifas />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Rutas de enfermero */}
           <Route

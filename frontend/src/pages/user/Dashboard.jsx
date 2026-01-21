@@ -16,31 +16,55 @@ function Dashboard() {
   const [historial, setHistorial] = useState([]);
   const [showHistorial, setShowHistorial] = useState(false);
   const [loadingHistorial, setLoadingHistorial] = useState(false);
-  const [historialAccesos, setHistorialAccesos] = useState([]);
-  const [loadingAccesos, setLoadingAccesos] = useState(true);
+  
   const [pruebaSalud, setPruebaSalud] = useState(null);
   const [loadingPruebaSalud, setLoadingPruebaSalud] = useState(true);
+  
+  const [escaneos, setEscaneos] = useState([]);
+  const [loadingEscaneos, setLoadingEscaneos] = useState(true);
+
+  // ✅ NUEVO: Estado para tipos de abono
+  const [tiposAbonoMap, setTiposAbonoMap] = useState({});
+
+  // Estados para editar perfil
   const [showEditModal, setShowEditModal] = useState(false);
-  const [formData, setFormData] = useState({
+  const [editFormData, setEditFormData] = useState({
+    nombre: '',
+    apellido: '',
     email: '',
     telefono: '',
-    fotoPerfil: null
+    fotoPerfil: ''
   });
-  const [previewImage, setPreviewImage] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
 
   useEffect(() => {
     if (user?.qrCode && qrCanvasRef.current) {
       QRCode.toCanvas(qrCanvasRef.current, user.qrCode, {
-        width: 140,
-        margin: 2,
+        width: 150,
+        margin: 1,
         color: {
           dark: '#000000',
-          light: '#FFFFFF'
+          light: '#ffffff',
         }
       });
     }
   }, [user?.qrCode]);
+
+  // ✅ NUEVO: Cargar tipos de abono
+  const cargarTiposAbono = useCallback(async () => {
+    try {
+      const response = await api.get('/configuracion');
+      if (response.data.success) {
+        const map = {};
+        response.data.configuracion.tiposAbono.forEach(tipo => {
+          map[tipo.id] = tipo.nombre;
+        });
+        setTiposAbonoMap(map);
+      }
+    } catch (error) {
+      console.error('Error al cargar tipos de abono:', error);
+    }
+  }, []);
 
   const cargarAbono = useCallback(async () => {
     try {
@@ -57,10 +81,6 @@ function Dashboard() {
     }
   }, []);
 
-  useEffect(() => {
-    cargarAbono();
-  }, [cargarAbono]);
-
   const cargarPruebaSalud = useCallback(async () => {
     try {
       setLoadingPruebaSalud(true);
@@ -76,30 +96,34 @@ function Dashboard() {
     }
   }, []);
 
-  useEffect(() => {
-    cargarPruebaSalud();
-  }, [cargarPruebaSalud]);
-
-  const cargarHistorialAccesos = useCallback(async () => {
+  const cargarEscaneos = useCallback(async () => {
     try {
-      setLoadingAccesos(true);
-      const data = await escaneoService.getMiHistorial(5);
-      setHistorialAccesos(data.escaneos || []);
+      setLoadingEscaneos(true);
+      const data = await escaneoService.getMiHistorial(10);
+      const escaneos = (data.escaneos || []).map(e => ({
+        ...e,
+        exitoso: Boolean(e.exitoso)
+      }));
+      setEscaneos(escaneos);
     } catch (error) {
-      console.error('Error al cargar historial de accesos:', error);
-      setHistorialAccesos([]);
+      console.error('Error al cargar escaneos:', error);
+      setEscaneos([]);
     } finally {
-      setLoadingAccesos(false);
+      setLoadingEscaneos(false);
     }
   }, []);
 
   useEffect(() => {
-    cargarHistorialAccesos();
-  }, [cargarHistorialAccesos]);
+    cargarAbono();
+    cargarPruebaSalud();
+    cargarEscaneos();
+    cargarTiposAbono(); // ✅ NUEVO
+  }, [cargarAbono, cargarPruebaSalud, cargarEscaneos, cargarTiposAbono]);
 
-  const cargarHistorial = async () => {
+  const handleVerHistorial = async () => {
     try {
       setLoadingHistorial(true);
+      setShowHistorial(true);
       const data = await abonoService.getMiHistorial();
       setHistorial(data.abonos || []);
     } catch (error) {
@@ -110,91 +134,52 @@ function Dashboard() {
     }
   };
 
-  const handleVerHistorial = async () => {
-    setShowHistorial(true);
-    await cargarHistorial();
-  };
-
-  const handleOpenEditModal = () => {
-    setFormData({
-      email: user?.email || '',
-      telefono: user?.telefono || '',
-      fotoPerfil: user?.fotoPerfil || null
-    });
-    setPreviewImage(user?.fotoPerfil || null);
-    setShowEditModal(true);
-  };
-
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      if (file.size > 2 * 1024 * 1024) {
-        alert('La imagen es muy grande. Máximo 2MB');
-        return;
-      }
-
-      if (!file.type.startsWith('image/')) {
-        alert('El archivo debe ser una imagen');
-        return;
-      }
-
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = reader.result;
-        setFormData({ ...formData, fotoPerfil: base64String });
-        setPreviewImage(base64String);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleSaveProfile = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-
-    try {
-      const result = await updateProfile(formData);
-      if (result.success) {
-        setShowEditModal(false);
-        alert('Perfil actualizado exitosamente');
-      } else {
-        alert(result.error || 'Error al actualizar perfil');
-      }
-    } catch (error) {
-      alert('Error al actualizar perfil');
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
-  const formatFecha = (fecha) => {
-    return new Date(fecha).toLocaleDateString('es-AR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
+  const handleOpenEditModal = () => {
+    setEditFormData({
+      nombre: user?.nombre || '',
+      apellido: user?.apellido || '',
+      email: user?.email || '',
+      telefono: user?.telefono || '',
+      fotoPerfil: user?.fotoPerfil || ''
     });
+    setShowEditModal(true);
   };
 
-  const formatFechaHora = (fecha) => {
-    return new Date(fecha).toLocaleString('es-AR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+  const handleSubmitEdit = async (e) => {
+    e.preventDefault();
+    
+    try {
+      setEditLoading(true);
+      
+      const response = await api.put('/auth/perfil', editFormData);
+      
+      if (response.data.usuario) {
+        updateProfile(response.data.usuario);
+        setShowEditModal(false);
+        alert('Perfil actualizado correctamente');
+      }
+    } catch (error) {
+      console.error('Error al actualizar perfil:', error);
+      alert(error.response?.data?.message || 'Error al actualizar el perfil');
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const formatFecha = (fecha) => {
+    return new Date(fecha).toLocaleDateString('es-AR');
   };
 
   const formatPrecio = (precio) => {
     return new Intl.NumberFormat('es-AR', {
       style: 'currency',
-      currency: 'ARS'
+      currency: 'ARS',
+      minimumFractionDigits: 0
     }).format(precio);
   };
 
@@ -296,6 +281,11 @@ function Dashboard() {
       color: 'bg-green-100 text-green-800',
       detalle: `Válido hasta ${formatFecha(pruebaSalud.fechaVencimiento)}`
     };
+  };
+
+  // ✅ NUEVO: Función para obtener nombre del tipo de abono
+  const obtenerNombreTipoAbono = (tipoId) => {
+    return tiposAbonoMap[tipoId] || tipoId;
   };
 
   const estadoAbono = obtenerEstadoAbono();
@@ -414,7 +404,8 @@ function Dashboard() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-blue-50 p-4 rounded-lg">
                   <p className="text-sm text-blue-600 font-medium mb-1">Tipo de Abono</p>
-                  <p className="text-lg font-bold text-blue-900 capitalize">{abono.tipoAbono}</p>
+                  {/* ✅ CAMBIO: Mostrar nombre en lugar de ID */}
+                  <p className="text-lg font-bold text-blue-900">{obtenerNombreTipoAbono(abono.tipoAbono)}</p>
                 </div>
 
                 <div className="bg-green-50 p-4 rounded-lg">
@@ -499,297 +490,199 @@ function Dashboard() {
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <div className="text-blue-500 text-3xl">🚪</div>
-                <h3 className="text-lg font-semibold">Historial de Accesos</h3>
-              </div>
-              <button
-                onClick={() => navigate('/usuario/mi-qr')}
-                className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-              >
-                Ver todos →
-              </button>
-            </div>
-
-            {loadingAccesos ? (
-              <div className="text-center py-4">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-                <p className="mt-2 text-sm text-gray-600">Cargando...</p>
-              </div>
-            ) : historialAccesos.length === 0 ? (
-              <div className="text-center py-6">
-                <p className="text-gray-500 text-sm">No hay accesos registrados</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {historialAccesos.map((acceso, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-2 h-2 rounded-full ${acceso.exitoso ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">
-                          {acceso.exitoso ? '✅ Acceso permitido' : '❌ Acceso denegado'}
-                        </p>
-                        <p className="text-xs text-gray-500">{formatFechaHora(acceso.fecha)}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+        {/* Resto del componente continúa igual... */}
+        <div className="bg-white rounded-lg shadow-lg p-6 mb-6 border-2 border-green-500">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-bold text-gray-900">🩺 Apto Médico</h2>
+            <span className={`px-3 py-1 rounded-full text-sm font-medium ${estadoPruebaSalud.color}`}>
+              {estadoPruebaSalud.texto}
+            </span>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <div className="text-purple-500 text-3xl">🏥</div>
-                <h3 className="text-lg font-semibold">Apto Médico</h3>
-              </div>
-              {!loadingPruebaSalud && (
-                <span className={`px-3 py-1 rounded-full text-xs font-medium ${estadoPruebaSalud.color}`}>
-                  {estadoPruebaSalud.texto}
-                </span>
+          {loadingPruebaSalud ? (
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500 mx-auto"></div>
+              <p className="mt-4 text-gray-600">Cargando información médica...</p>
+            </div>
+          ) : (
+            <div>
+              <p className="text-gray-700">{estadoPruebaSalud.detalle}</p>
+              {!pruebaSalud && (
+                <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <p className="text-yellow-800 font-medium text-sm">
+                    ⚠️ Para ingresar a la pileta necesitas un certificado de aptitud física vigente.
+                  </p>
+                </div>
               )}
             </div>
+          )}
+        </div>
 
-            {loadingPruebaSalud ? (
-              <div className="text-center py-4">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 mx-auto"></div>
-                <p className="mt-2 text-sm text-gray-600">Cargando...</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <p className="text-gray-700 text-sm">
-                  {estadoPruebaSalud.detalle}
-                </p>
-                
-                {pruebaSalud && (
-                  <>
-                    <div className="bg-gray-50 rounded-lg p-3 space-y-2">
-                      <div>
-                        <p className="text-xs text-gray-600">Fecha de emisión</p>
-                        <p className="text-sm font-semibold">{formatFecha(pruebaSalud.fechaPrueba)}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-600">Válido hasta</p>
-                        <p className="text-sm font-semibold">{formatFecha(pruebaSalud.fechaVencimiento)}</p>
-                      </div>
-                    </div>
-                    
-                    {pruebaSalud.notas && (
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                        <p className="text-xs text-blue-600 font-medium mb-1">Observaciones:</p>
-                        <p className="text-sm text-blue-800">{pruebaSalud.notas}</p>
-                      </div>
-                    )}
-                  </>
-                )}
-                
-                {!pruebaSalud && (
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                    <p className="text-xs text-gray-600">
-                      El apto médico es obligatorio para acceder a la pileta. Contacta con el personal de enfermería.
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-xl font-semibold mb-4">📊 Últimos Accesos</h2>
+          
+          {loadingEscaneos ? (
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+            </div>
+          ) : escaneos.length > 0 ? (
+            <div className="space-y-3">
+              {escaneos.map((escaneo) => (
+                <div key={escaneo._id} className="flex justify-between items-center p-3 bg-gray-50 rounded">
+                  <div>
+                    <p className="font-medium">{formatFecha(escaneo.fechaHora)}</p>
+                    <p className="text-sm text-gray-600">
+                      {new Date(escaneo.fechaHora).toLocaleTimeString('es-AR')}
                     </p>
                   </div>
-                )}
-              </div>
-            )}
-          </div>
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                    escaneo.exitoso === true ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                  }`}>
+                    {escaneo.exitoso === true ? '✓ Acceso Permitido' : '✗ Acceso Denegado'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-600 text-center py-4">No hay escaneos registrados</p>
+          )}
         </div>
       </main>
 
+      {/* Modal Historial */}
       {showHistorial && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="p-6 border-b">
-              <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold text-gray-900">
-                  📋 Historial de Abonos
-                </h2>
+          <div className="bg-white rounded-2xl max-w-3xl w-full shadow-2xl max-h-[80vh] overflow-y-auto">
+            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-6 rounded-t-2xl sticky top-0">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-white">📋 Historial de Abonos</h2>
                 <button
                   onClick={() => setShowHistorial(false)}
-                  className="text-gray-500 hover:text-gray-700 text-2xl"
+                  className="text-white hover:bg-white hover:bg-opacity-20 rounded-full w-8 h-8 flex items-center justify-center transition-all"
                 >
-                  ×
+                  ✕
                 </button>
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="p-6">
               {loadingHistorial ? (
                 <div className="text-center py-8">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-                  <p className="mt-4 text-gray-600">Cargando historial...</p>
                 </div>
-              ) : historial.length === 0 ? (
-                <div className="text-center py-8">
-                  <div className="text-6xl mb-4">📭</div>
-                  <p className="text-gray-600">No hay abonos registrados en tu historial</p>
-                </div>
-              ) : (
+              ) : historial.length > 0 ? (
                 <div className="space-y-4">
-                  {historial.map((abonoHistorial) => {
-                    const estadoAbonoHistorial = obtenerEstadoAbono(abonoHistorial);
-                    return (
-                      <div
-                        key={abonoHistorial._id}
-                        className="border rounded-lg p-4 hover:shadow-md transition"
-                      >
-                        <div className="flex justify-between items-start mb-3">
-                          <div>
-                            <span className="text-lg font-semibold capitalize">
-                              {abonoHistorial.tipoAbono}
-                            </span>
-                            <p className="text-sm text-gray-600">
-                              {formatFecha(abonoHistorial.fechaInicio)} - {formatFecha(abonoHistorial.fechaFin)}
-                            </p>
-                          </div>
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${estadoAbonoHistorial.color}`}>
-                            {estadoAbonoHistorial.icono} {estadoAbonoHistorial.texto}
-                          </span>
+                  {historial.map((item) => (
+                    <div key={item._id} className="border-2 border-gray-200 rounded-lg p-4">
+                      <div className="flex justify-between items-start mb-3">
+                        {/* ✅ CAMBIO: Mostrar nombre del tipo */}
+                        <h3 className="font-bold text-lg">{obtenerNombreTipoAbono(item.tipoAbono)}</h3>
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${obtenerEstadoAbono(item).color}`}>
+                          {obtenerEstadoAbono(item).icono} {obtenerEstadoAbono(item).texto}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <p className="text-gray-600">Precio:</p>
+                          <p className="font-semibold">{formatPrecio(item.precio)}</p>
                         </div>
-
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                          <div>
-                            <p className="text-gray-600">Precio</p>
-                            <p className="font-semibold">{formatPrecio(abonoHistorial.precio)}</p>
-                          </div>
-                          <div>
-                            <p className="text-gray-600">Estado de Pago</p>
-                            <p className="font-semibold">
-                              {abonoHistorial.pagado ? '✓ Pagado' : '⏳ Pendiente'}
-                            </p>
-                          </div>
-                          {abonoHistorial.metodoPago && abonoHistorial.metodoPago !== 'pendiente' && (
-                            <div>
-                              <p className="text-gray-600">Método de Pago</p>
-                              <p className="font-semibold capitalize">{abonoHistorial.metodoPago}</p>
-                            </div>
-                          )}
-                          {abonoHistorial.pagado && (
-                            <div>
-                              <p className="text-gray-600">Días Usados</p>
-                              <p className="font-semibold">
-                                {Math.max(0, Math.ceil((new Date() - new Date(abonoHistorial.fechaInicio)) / (1000 * 60 * 60 * 24)))} días
-                              </p>
-                            </div>
-                          )}
+                        <div>
+                          <p className="text-gray-600">Vigencia:</p>
+                          <p className="font-semibold">
+                            {formatFecha(item.fechaInicio)} - {formatFecha(item.fechaFin)}
+                          </p>
                         </div>
                       </div>
-                    );
-                  })}
+                    </div>
+                  ))}
                 </div>
+              ) : (
+                <p className="text-center text-gray-600 py-8">No hay historial de abonos</p>
               )}
-            </div>
-
-            <div className="p-4 border-t bg-gray-50">
-              <button
-                onClick={() => setShowHistorial(false)}
-                className="w-full px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
-              >
-                Cerrar
-              </button>
             </div>
           </div>
         </div>
       )}
 
+      {/* Modal Editar Perfil */}
       {showEditModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <h2 className="text-2xl font-bold mb-4 text-gray-900">
-              Editar Perfil
-            </h2>
+          <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl">
+            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-6 rounded-t-2xl">
+              <h2 className="text-2xl font-bold text-white">✏️ Editar Perfil</h2>
+            </div>
 
-            <form onSubmit={handleSaveProfile} className="space-y-4">
-              <div className="flex flex-col items-center mb-4">
-                <div className="mb-2">
-                  <img
-                    src={previewImage || `https://ui-avatars.com/api/?name=${user?.nombre}+${user?.apellido}&background=3B82F6&color=fff&size=128`}
-                    alt="Preview"
-                    className="h-24 w-24 rounded-full object-cover border-4 border-gray-200"
-                  />
-                </div>
-                <label className="cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm">
+            <form onSubmit={handleSubmitEdit} className="p-6 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Nombre
+                  </label>
                   <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageChange}
-                    className="hidden"
+                    type="text"
+                    value={editFormData.nombre}
+                    onChange={(e) => setEditFormData({ ...editFormData, nombre: e.target.value })}
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    disabled
                   />
-                  {previewImage ? 'Cambiar foto' : 'Subir foto'}
-                </label>
-                {previewImage && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFormData({ ...formData, fotoPerfil: null });
-                      setPreviewImage(null);
-                    }}
-                    className="mt-2 text-red-600 text-sm hover:text-red-800"
-                  >
-                    Eliminar foto
-                  </button>
-                )}
-              </div>
+                  <p className="text-xs text-gray-500 mt-1">Solo el administrador puede cambiar el nombre</p>
+                </div>
 
-              <div className="bg-gray-50 p-4 rounded-lg mb-4">
-                <p className="text-sm text-gray-600 mb-2">
-                  <strong>Nombre:</strong> {user?.nombre} {user?.apellido}
-                </p>
-                <p className="text-sm text-gray-600">
-                  <strong>DNI:</strong> {user?.dni}
-                </p>
-                <p className="text-xs text-gray-500 mt-2 italic">
-                  * Estos datos solo pueden ser modificados por un administrador
-                </p>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Apellido
+                  </label>
+                  <input
+                    type="text"
+                    value={editFormData.apellido}
+                    onChange={(e) => setEditFormData({ ...editFormData, apellido: e.target.value })}
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    disabled
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Solo el administrador puede cambiar el apellido</p>
+                </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1 text-gray-700">Email *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Email
+                </label>
                 <input
                   type="email"
-                  required
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                  value={editFormData.email}
+                  onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1 text-gray-700">Teléfono</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Teléfono
+                </label>
                 <input
                   type="text"
-                  value={formData.telefono}
-                  onChange={(e) => setFormData({ ...formData, telefono: e.target.value })}
-                  className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
-                  placeholder="Ingrese su teléfono"
+                  value={editFormData.telefono}
+                  onChange={(e) => setEditFormData({ ...editFormData, telefono: e.target.value })}
+                  placeholder="Ej: +54 9 11 1234-5678"
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
 
-              <div className="flex gap-3 mt-6">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-blue-300"
-                >
-                  {loading ? 'Guardando...' : 'Guardar Cambios'}
-                </button>
+              <div className="flex gap-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowEditModal(false);
-                    setPreviewImage(null);
-                  }}
-                  className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+                  onClick={() => setShowEditModal(false)}
+                  disabled={editLoading}
+                  className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium disabled:opacity-50"
                 >
                   Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={editLoading}
+                  className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {editLoading ? '⏳ Guardando...' : '✅ Guardar Cambios'}
                 </button>
               </div>
             </form>

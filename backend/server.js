@@ -3,6 +3,8 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const os = require('os');
+const reportesRoutes = require('./routes/reportes');
+
 
 // Cargar variables de entorno
 dotenv.config();
@@ -47,14 +49,17 @@ app.use('/api/users', require('./routes/users'));
 // Rutas de abonos
 app.use('/api/abonos', require('./routes/abonos'));
 
-// Rutas de configuración
-app.use('/api/config', require('./routes/config'));
+// ✅ RUTA DE CONFIGURACIÓN (usa /api/configuracion)
+app.use('/api/configuracion', require('./routes/configuracion'));
 
 // Rutas de pruebas de salud
 app.use('/api/salud', require('./routes/salud'));
 
 // Rutas de escaneos
 app.use('/api/escaneos', require('./routes/escaneos'));
+
+// Rutas de reportes
+app.use('/api/reportes', reportesRoutes);
 
 
 

@@ -9,7 +9,7 @@ function EscanearQR() {
   const { logout, user } = useAuth();
   const scannerRef = useRef(null);
   const html5QrcodeScannerRef = useRef(null);
-  const procesandoRef = useRef(false); // 👈 NUEVO: ref para evitar múltiples llamadas
+  const procesandoRef = useRef(false);
 
   // Estados
   const [modoEscaneo, setModoEscaneo] = useState('camara');
@@ -39,7 +39,7 @@ function EscanearQR() {
 
   const iniciarEscaner = () => {
     if (!scannerRef.current) return;
-    procesandoRef.current = false; // Resetear el flag
+    procesandoRef.current = false;
     html5QrcodeScannerRef.current = new Html5QrcodeScanner(
       'reader',
       { 
@@ -63,18 +63,23 @@ function EscanearQR() {
   };
 
   const onScanSuccess = (decodedText) => {
-    // 👇 CRÍTICO: Verificar con ref para evitar race conditions
     if (procesandoRef.current) {
       console.log('Ya procesando, ignorando escaneo duplicado');
       return;
     }
     
-    console.log('QR escaneado:', decodedText);
-    procesandoRef.current = true; // Marcar como procesando INMEDIATAMENTE
+    console.log('🔍 QR escaneado:', decodedText);
+    procesandoRef.current = true;
     
-    // Pausar el escáner
+    // Pausar el escáner con try-catch para evitar errores
     if (html5QrcodeScannerRef.current) {
-      html5QrcodeScannerRef.current.pause(true);
+      try {
+        html5QrcodeScannerRef.current.pause(true);
+        console.log('✅ Scanner pausado correctamente');
+      } catch (error) {
+        // Ignorar el error, no es crítico
+        console.log('⚠️ No se pudo pausar (no es crítico):', error.message);
+      }
     }
     
     procesarEscaneo(decodedText);
@@ -100,29 +105,55 @@ function EscanearQR() {
   };
 
   const procesarEscaneo = async (codigoQR) => {
+    console.log('1️⃣ Iniciando procesarEscaneo con:', codigoQR);
     try {
       setProcesando(true);
+      console.log('2️⃣ Llamando a escaneoService.escanearQR...');
+      
       const data = await escaneoService.escanearQR(codigoQR, notas);
+      
+      console.log('3️⃣ Respuesta del backend:', data);
+      console.log('4️⃣ Seteando resultData:', data);
+      
       setResultData(data);
       setShowResultModal(true);
+      
+      console.log('5️⃣ showResultModal debería ser true ahora');
+      console.log('6️⃣ resultData:', data);
+      
       setQrCode('');
       setNotas('');
       await cargarEscaneosHoy();
+      
+      console.log('7️⃣ Modal debería estar visible');
+      
     } catch (error) {
+      console.error('❌ Error en procesarEscaneo:', error);
       const errorData = error.response?.data;
+      console.log('8️⃣ ErrorData:', errorData);
+      
       setResultData(errorData || {
         exitoso: false,
         message: 'Error al procesar el escaneo'
       });
       setShowResultModal(true);
+      
+      console.log('9️⃣ Modal de error debería estar visible');
+      
     } finally {
       setProcesando(false);
       
       // Reanudar el escáner después de 2 segundos
       setTimeout(() => {
-        procesandoRef.current = false; // Permitir nuevos escaneos
+        console.log('🔄 Reseteando procesandoRef y resumiendo scanner...');
+        procesandoRef.current = false;
         if (html5QrcodeScannerRef.current && modoEscaneo === 'camara') {
-          html5QrcodeScannerRef.current.resume();
+          try {
+            html5QrcodeScannerRef.current.resume();
+            console.log('✅ Scanner resumido');
+          } catch (e) {
+            console.log('⚠️ No se pudo resumir scanner:', e.message);
+          }
         }
       }, 2000);
     }
@@ -157,28 +188,43 @@ function EscanearQR() {
     return motivos[motivoRechazo] || { texto: motivoRechazo, color: 'text-gray-600', emoji: '❓' };
   };
 
+  // DEBUG: Log cuando cambian los estados del modal
+  useEffect(() => {
+    console.log('🎭 showResultModal cambió a:', showResultModal);
+  }, [showResultModal]);
+
+  useEffect(() => {
+    console.log('📦 resultData cambió a:', resultData);
+  }, [resultData]);
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <div>
+      <nav className="bg-white shadow-md">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() => navigate('/admin/dashboard')}
+                className="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg flex items-center justify-center hover:opacity-80 transition"
+              >
+                <span className="text-white text-xl font-bold">←</span>
+              </button>
+              <div>
+                <h1 className="text-xl font-bold text-gray-800">Escanear QR - Control de Acceso</h1>
+                <p className="text-xs text-gray-500">Panel de Administración</p>
+              </div>
+            </div>
+            
             <button
-              onClick={() => navigate('/admin/dashboard')}
-              className="text-blue-600 hover:text-blue-800 mb-2"
+              onClick={logout}
+              className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors text-sm font-medium"
             >
-              ← Volver al Dashboard
+              Salir
             </button>
-            <h1 className="text-2xl font-bold text-gray-900">Escanear QR - Control de Acceso</h1>
           </div>
-          <button
-            onClick={logout}
-            className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-          >
-            Cerrar Sesión
-          </button>
         </div>
-      </header>
+      </nav>
 
       <main className="max-w-7xl mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -332,285 +378,284 @@ function EscanearQR() {
         </div>
       </main>
 
-      {/* MODAL DE RESULTADO - TU VERSION ANTERIOR */}
-      {showResultModal && resultData && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-2xl w-full overflow-hidden shadow-2xl animate-[fadeIn_0.3s_ease-in-out]">
-            
-            {/* Header dinámico */}
-            <div className={`p-6 text-center ${
-              resultData.exitoso
-                ? 'bg-gradient-to-r from-green-500 to-emerald-600'
-                : 'bg-gradient-to-r from-red-500 to-rose-600'
-            }`}>
-              <div className="w-24 h-24 bg-white rounded-full mx-auto mb-4 flex items-center justify-center shadow-lg animate-[pulse_1s_ease-in-out]">
-                <span className="text-7xl">{resultData.exitoso ? '✅' : '❌'}</span>
+      {/* MODAL DE RESULTADO - VERSIÓN COMPACTA */}
+{showResultModal && resultData && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+    <div className="bg-white rounded-2xl max-w-2xl w-full my-8 overflow-hidden shadow-2xl animate-[fadeIn_0.3s_ease-in-out]">
+      
+      {/* Header dinámico - COMPACTO */}
+      <div className={`p-4 text-center ${
+        resultData.exitoso
+          ? 'bg-gradient-to-r from-green-500 to-emerald-600'
+          : 'bg-gradient-to-r from-red-500 to-rose-600'
+      }`}>
+        <div className="w-16 h-16 bg-white rounded-full mx-auto mb-2 flex items-center justify-center shadow-lg animate-[pulse_1s_ease-in-out]">
+          <span className="text-5xl">{resultData.exitoso ? '✅' : '❌'}</span>
+        </div>
+        <h2 className="text-2xl font-bold text-white mb-1">
+          {resultData.exitoso ? '¡Acceso Permitido!' : 'Acceso Denegado'}
+        </h2>
+        <p className={`text-sm font-medium ${resultData.exitoso ? 'text-green-50' : 'text-red-50'}`}>
+          {resultData.message}
+        </p>
+      </div>
+
+      {/* Contenido del modal - COMPACTO */}
+      <div className="p-4 space-y-3 max-h-[calc(100vh-200px)] overflow-y-auto">
+        
+        {/* Información del usuario con foto CLICKEABLE */}
+        {resultData.usuario && (
+          <>
+            <div className="text-center border-b pb-3">
+              <div className="flex justify-center mb-2">
+                <img
+                  src={resultData.usuario.fotoPerfil || `https://ui-avatars.com/api/?name=${resultData.usuario.nombre}+${resultData.usuario.apellido}&background=3B82F6&color=fff&size=128`}
+                  alt={`${resultData.usuario.nombre} ${resultData.usuario.apellido}`}
+                  className="w-20 h-20 rounded-full object-cover border-4 border-gray-200 shadow-lg cursor-pointer hover:opacity-80 hover:scale-105 transition-all"
+                  onClick={() => setShowPhotoLightbox(true)}
+                  title="Click para ampliar foto"
+                />
               </div>
-              <h2 className="text-3xl font-bold text-white mb-2">
-                {resultData.exitoso ? '¡Acceso Permitido!' : 'Acceso Denegado'}
-              </h2>
-              <p className={`text-lg font-medium ${resultData.exitoso ? 'text-green-50' : 'text-red-50'}`}>
-                {resultData.message}
+              <h3 className="text-xl font-bold text-gray-800">
+                {resultData.usuario.nombre} {resultData.usuario.apellido}
+              </h3>
+              <p className="text-gray-600 text-sm mt-1">
+                DNI: <span className="font-semibold">{resultData.usuario.dni}</span>
+              </p>
+              <p className="text-xs text-gray-500 mt-1 italic">
+                💡 Click en la foto para ampliar
               </p>
             </div>
 
-            {/* Contenido del modal */}
-            <div className="p-6 space-y-4">
+            {/* GRID DE 2 COLUMNAS - COMPACTO */}
+            <div className="space-y-2">
+              <p className="text-xs font-bold text-gray-700 uppercase text-center">
+                Estado de Acceso
+              </p>
               
-              {/* Información del usuario con foto CLICKEABLE */}
-              {resultData.usuario && (
-                <>
-                  <div className="text-center border-b pb-4">
-                    <div className="flex justify-center mb-4">
-                      {/* 👇 FOTO CLICKEABLE CON CURSOR POINTER Y HOVER */}
-                      <img
-                        src={resultData.usuario.fotoPerfil || `https://ui-avatars.com/api/?name=${resultData.usuario.nombre}+${resultData.usuario.apellido}&background=3B82F6&color=fff&size=128`}
-                        alt={`${resultData.usuario.nombre} ${resultData.usuario.apellido}`}
-                        className="w-24 h-24 rounded-full object-cover border-4 border-gray-200 shadow-lg cursor-pointer hover:opacity-80 hover:scale-105 transition-all"
-                        onClick={() => setShowPhotoLightbox(true)}
-                        title="Click para ampliar foto"
-                      />
-                    </div>
-                    <h3 className="text-2xl font-bold text-gray-800">
-                      {resultData.usuario.nombre} {resultData.usuario.apellido}
-                    </h3>
-                    <p className="text-gray-600 mt-1">
-                      DNI: <span className="font-semibold">{resultData.usuario.dni}</span>
-                    </p>
-                    <p className="text-xs text-gray-500 mt-2 italic">
-                      💡 Click en la foto para ampliar
-                    </p>
-                  </div>
-
-                  {/* GRID DE 2 COLUMNAS CON BADGES ALINEADOS */}
-                  <div className="space-y-3">
-                    <p className="text-sm font-bold text-gray-700 uppercase text-center">
-                      Estado de Acceso
-                    </p>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      
-                      {/* COLUMNA 1: ABONO */}
-                      <div className="flex flex-col h-full">
-                        <p className="text-xs font-semibold text-gray-600 uppercase text-center mb-2">
-                          💳 Abono
-                        </p>
-                        
-                        {resultData.usuario.abono ? (
-                          <div className="flex flex-col flex-1">
-                            <div className="space-y-2 flex-1">
-                              <div className="bg-blue-50 rounded-lg p-3 border-2 border-blue-200">
-                                <p className="text-xs text-blue-600 font-medium mb-1">Tipo</p>
-                                <p className="text-sm text-gray-800 font-bold capitalize">
-                                  {resultData.usuario.abono.tipo}
-                                </p>
-                              </div>
-
-                              <div className={`rounded-lg p-3 border-2 ${
-                                resultData.usuario.abono.diasRestantes > 7
-                                  ? 'bg-green-50 border-green-200'
-                                  : resultData.usuario.abono.diasRestantes > 3
-                                  ? 'bg-yellow-50 border-yellow-200'
-                                  : resultData.usuario.abono.diasRestantes > 0
-                                  ? 'bg-orange-50 border-orange-200'
-                                  : 'bg-red-50 border-red-200'
-                              }`}>
-                                <p className={`text-xs font-medium mb-1 ${
-                                  resultData.usuario.abono.diasRestantes > 7 ? 'text-green-600' :
-                                  resultData.usuario.abono.diasRestantes > 3 ? 'text-yellow-600' : 
-                                  resultData.usuario.abono.diasRestantes > 0 ? 'text-orange-600' : 'text-red-600'
-                                }`}>
-                                  Vigencia
-                                </p>
-                                <p className="text-xl font-bold text-gray-800">
-                                  {resultData.usuario.abono.diasRestantes > 0 ? (
-                                    <>
-                                      {resultData.usuario.abono.diasRestantes} 
-                                      <span className="text-xs font-normal ml-1">días</span>
-                                    </>
-                                  ) : (
-                                    <span className="text-sm">Vencido</span>
-                                  )}
-                                </p>
-                                {resultData.usuario.abono.diasRestantes <= 7 && resultData.usuario.abono.diasRestantes > 0 && (
-                                  <p className="text-xs text-gray-600 mt-1">
-                                    ⚠️ Próximo a vencer
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-
-                            <div className={`mt-2 rounded-lg p-2 text-center border-2 ${
-                              resultData.usuario.abono.diasRestantes > 0
-                                ? 'bg-green-50 border-green-300'
-                                : 'bg-red-50 border-red-300'
-                            }`}>
-                              <p className={`text-sm font-bold ${
-                                resultData.usuario.abono.diasRestantes > 0
-                                  ? 'text-green-700'
-                                  : 'text-red-700'
-                              }`}>
-                                {resultData.usuario.abono.diasRestantes > 0 ? '✅ Vigente' : '❌ Vencido'}
-                              </p>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="flex flex-col flex-1 justify-between">
-                            <div className="bg-red-50 border-2 border-red-300 rounded-lg p-4 text-center flex-1 flex flex-col justify-center">
-                              <p className="text-3xl mb-2">📭</p>
-                              <p className="text-sm font-bold text-red-700">Sin Abono</p>
-                              <p className="text-xs text-gray-600 mt-1">Debe adquirir un abono</p>
-                            </div>
-                            <div className="mt-2 rounded-lg p-2 text-center border-2 bg-red-50 border-red-300">
-                              <p className="text-sm font-bold text-red-700">❌ Sin Abono</p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* COLUMNA 2: APTO MÉDICO */}
-                      <div className="flex flex-col h-full">
-                        <p className="text-xs font-semibold text-gray-600 uppercase text-center mb-2">
-                          🏥 Apto Médico
-                        </p>
-                        
-                        {resultData.usuario.pruebaSalud ? (
-                          <div className="flex flex-col flex-1">
-                            <div className="space-y-2 flex-1">
-                              <div className={`rounded-lg p-3 border-2 ${
-                                resultData.usuario.pruebaSalud.diasRestantes > 30
-                                  ? 'bg-green-50 border-green-200'
-                                  : resultData.usuario.pruebaSalud.diasRestantes > 7
-                                  ? 'bg-yellow-50 border-yellow-200'
-                                  : resultData.usuario.pruebaSalud.diasRestantes > 0
-                                  ? 'bg-orange-50 border-orange-200'
-                                  : 'bg-red-50 border-red-200'
-                              }`}>
-                                <p className={`text-xs font-medium mb-1 ${
-                                  resultData.usuario.pruebaSalud.diasRestantes > 30 ? 'text-green-600' :
-                                  resultData.usuario.pruebaSalud.diasRestantes > 7 ? 'text-yellow-600' : 
-                                  resultData.usuario.pruebaSalud.diasRestantes > 0 ? 'text-orange-600' : 'text-red-600'
-                                }`}>
-                                  Vigencia
-                                </p>
-                                <p className="text-xl font-bold text-gray-800">
-                                  {resultData.usuario.pruebaSalud.diasRestantes > 0 ? (
-                                    <>
-                                      {resultData.usuario.pruebaSalud.diasRestantes}
-                                      <span className="text-xs font-normal ml-1">días</span>
-                                    </>
-                                  ) : (
-                                    <span className="text-sm">Vencido</span>
-                                  )}
-                                </p>
-                                {resultData.usuario.pruebaSalud.diasRestantes <= 30 && resultData.usuario.pruebaSalud.diasRestantes > 0 && (
-                                  <p className="text-xs text-gray-600 mt-1">
-                                    {resultData.usuario.pruebaSalud.diasRestantes <= 7 
-                                      ? '⚠️ Próximo a vencer' 
-                                      : '⏰ Renovar pronto'}
-                                  </p>
-                                )}
-                              </div>
-
-                              <div className="bg-gray-50 rounded-lg p-3 border-2 border-gray-200">
-                                <p className="text-xs text-gray-600 font-medium mb-1">Vence</p>
-                                <p className="text-sm text-gray-800 font-semibold">
-                                  {new Date(resultData.usuario.pruebaSalud.vence).toLocaleDateString('es-AR')}
-                                </p>
-                              </div>
-                            </div>
-
-                            <div className={`mt-2 rounded-lg p-2 text-center border-2 ${
-                              resultData.usuario.pruebaSalud.diasRestantes > 0
-                                ? 'bg-green-50 border-green-300'
-                                : 'bg-red-50 border-red-300'
-                            }`}>
-                              <p className={`text-sm font-bold ${
-                                resultData.usuario.pruebaSalud.diasRestantes > 0
-                                  ? 'text-green-700'
-                                  : 'text-red-700'
-                              }`}>
-                                {resultData.usuario.pruebaSalud.diasRestantes > 0 ? '✅ Vigente' : '❌ Vencido'}
-                              </p>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="flex flex-col flex-1 justify-between">
-                            <div className="bg-red-50 border-2 border-red-300 rounded-lg p-4 text-center flex-1 flex flex-col justify-center">
-                              <p className="text-3xl mb-2">🏥</p>
-                              <p className="text-sm font-bold text-red-700">Sin Apto Médico</p>
-                              <p className="text-xs text-gray-600 mt-1">Debe presentar certificado</p>
-                            </div>
-                            <div className="mt-2 rounded-lg p-2 text-center border-2 bg-red-50 border-red-300">
-                              <p className="text-sm font-bold text-red-700">❌ Sin Apto</p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Motivo del rechazo */}
-                  {!resultData.exitoso && resultData.motivoRechazo && (
-                    <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4">
-                      <div className="flex items-start">
-                        <span className="text-3xl mr-3">
-                          {obtenerInfoMotivo(resultData.motivoRechazo).emoji}
-                        </span>
-                        <div className="flex-1">
-                          <p className="text-xs text-red-600 font-bold uppercase mb-1">Motivo del Rechazo</p>
-                          <p className={`text-lg font-bold ${obtenerInfoMotivo(resultData.motivoRechazo).color}`}>
-                            {obtenerInfoMotivo(resultData.motivoRechazo).texto}
-                          </p>
-                          <p className="text-sm text-gray-600 mt-2">
-                            {resultData.motivoRechazo === 'qr_invalido' && 'El código QR no es válido o no existe en el sistema.'}
-                            {resultData.motivoRechazo === 'usuario_inactivo' && 'El usuario debe activar su cuenta.'}
-                            {resultData.motivoRechazo === 'usuario_baneado' && 'El usuario ha sido suspendido del sistema.'}
-                            {resultData.motivoRechazo === 'sin_abono' && 'El usuario no tiene un abono asignado.'}
-                            {resultData.motivoRechazo === 'abono_no_pagado' && 'El abono existe pero aún no ha sido pagado.'}
-                            {resultData.motivoRechazo === 'abono_vencido' && 'El abono ha expirado y debe renovarse.'}
-                            {resultData.motivoRechazo === 'sin_prueba_salud' && 'Falta el certificado de aptitud física (apto médico).'}
-                            {resultData.motivoRechazo === 'prueba_salud_vencida' && 'El certificado de aptitud física ha vencido.'}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                
+                {/* COLUMNA 1: ABONO */}
+                <div className="flex flex-col h-full">
+                  <p className="text-xs font-semibold text-gray-600 uppercase text-center mb-1">
+                    💳 Abono
+                  </p>
+                  
+                  {resultData.usuario.abono ? (
+                    <div className="flex flex-col flex-1">
+                      <div className="space-y-1 flex-1">
+                        <div className="bg-blue-50 rounded-lg p-2 border-2 border-blue-200">
+                          <p className="text-xs text-blue-600 font-medium">Tipo</p>
+                          <p className="text-sm text-gray-800 font-bold capitalize">
+                            {resultData.usuario.abono.tipo}
                           </p>
                         </div>
+
+                        <div className={`rounded-lg p-2 border-2 ${
+                          resultData.usuario.abono.diasRestantes > 7
+                            ? 'bg-green-50 border-green-200'
+                            : resultData.usuario.abono.diasRestantes > 3
+                            ? 'bg-yellow-50 border-yellow-200'
+                            : resultData.usuario.abono.diasRestantes > 0
+                            ? 'bg-orange-50 border-orange-200'
+                            : 'bg-red-50 border-red-200'
+                        }`}>
+                          <p className={`text-xs font-medium ${
+                            resultData.usuario.abono.diasRestantes > 7 ? 'text-green-600' :
+                            resultData.usuario.abono.diasRestantes > 3 ? 'text-yellow-600' : 
+                            resultData.usuario.abono.diasRestantes > 0 ? 'text-orange-600' : 'text-red-600'
+                          }`}>
+                            Vigencia
+                          </p>
+                          <p className="text-lg font-bold text-gray-800">
+                            {resultData.usuario.abono.diasRestantes > 0 ? (
+                              <>
+                                {resultData.usuario.abono.diasRestantes} 
+                                <span className="text-xs font-normal ml-1">días</span>
+                              </>
+                            ) : (
+                              <span className="text-sm">Vencido</span>
+                            )}
+                          </p>
+                          {resultData.usuario.abono.diasRestantes <= 7 && resultData.usuario.abono.diasRestantes > 0 && (
+                            <p className="text-xs text-gray-600 mt-1">
+                              ⚠️ Próximo a vencer
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className={`mt-1 rounded-lg p-1 text-center border-2 ${
+                        resultData.usuario.abono.diasRestantes > 0
+                          ? 'bg-green-50 border-green-300'
+                          : 'bg-red-50 border-red-300'
+                      }`}>
+                        <p className={`text-xs font-bold ${
+                          resultData.usuario.abono.diasRestantes > 0
+                            ? 'text-green-700'
+                            : 'text-red-700'
+                        }`}>
+                          {resultData.usuario.abono.diasRestantes > 0 ? '✅ Vigente' : '❌ Vencido'}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col flex-1 justify-between">
+                      <div className="bg-red-50 border-2 border-red-300 rounded-lg p-3 text-center flex-1 flex flex-col justify-center">
+                        <p className="text-2xl mb-1">📭</p>
+                        <p className="text-sm font-bold text-red-700">Sin Abono</p>
+                        <p className="text-xs text-gray-600 mt-1">Debe adquirir un abono</p>
+                      </div>
+                      <div className="mt-1 rounded-lg p-1 text-center border-2 bg-red-50 border-red-300">
+                        <p className="text-xs font-bold text-red-700">❌ Sin Abono</p>
                       </div>
                     </div>
                   )}
+                </div>
 
-                  {/* Hora de acceso */}
-                  <div className="bg-gray-50 rounded-lg p-3 flex items-center justify-center">
-                    <span className="text-xl mr-2">🕐</span>
-                    <div>
-                      <p className="text-xs text-gray-500 font-medium">Hora de Escaneo</p>
-                      <p className="text-sm text-gray-800 font-semibold">
-                        {new Date().toLocaleTimeString('es-AR', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          second: '2-digit'
-                        })}
-                      </p>
+                {/* COLUMNA 2: APTO MÉDICO */}
+                <div className="flex flex-col h-full">
+                  <p className="text-xs font-semibold text-gray-600 uppercase text-center mb-1">
+                    🏥 Apto Médico
+                  </p>
+                  
+                  {resultData.usuario.pruebaSalud ? (
+                    <div className="flex flex-col flex-1">
+                      <div className="space-y-1 flex-1">
+                        <div className={`rounded-lg p-2 border-2 ${
+                          resultData.usuario.pruebaSalud.diasRestantes > 30
+                            ? 'bg-green-50 border-green-200'
+                            : resultData.usuario.pruebaSalud.diasRestantes > 7
+                            ? 'bg-yellow-50 border-yellow-200'
+                            : resultData.usuario.pruebaSalud.diasRestantes > 0
+                            ? 'bg-orange-50 border-orange-200'
+                            : 'bg-red-50 border-red-200'
+                        }`}>
+                          <p className={`text-xs font-medium ${
+                            resultData.usuario.pruebaSalud.diasRestantes > 30 ? 'text-green-600' :
+                            resultData.usuario.pruebaSalud.diasRestantes > 7 ? 'text-yellow-600' : 
+                            resultData.usuario.pruebaSalud.diasRestantes > 0 ? 'text-orange-600' : 'text-red-600'
+                          }`}>
+                            Vigencia
+                          </p>
+                          <p className="text-lg font-bold text-gray-800">
+                            {resultData.usuario.pruebaSalud.diasRestantes > 0 ? (
+                              <>
+                                {resultData.usuario.pruebaSalud.diasRestantes}
+                                <span className="text-xs font-normal ml-1">días</span>
+                              </>
+                            ) : (
+                              <span className="text-sm">Vencido</span>
+                            )}
+                          </p>
+                          {resultData.usuario.pruebaSalud.diasRestantes <= 30 && resultData.usuario.pruebaSalud.diasRestantes > 0 && (
+                            <p className="text-xs text-gray-600 mt-1">
+                              {resultData.usuario.pruebaSalud.diasRestantes <= 7 
+                                ? '⚠️ Próximo a vencer' 
+                                : '⏰ Renovar pronto'}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="bg-gray-50 rounded-lg p-2 border-2 border-gray-200">
+                          <p className="text-xs text-gray-600 font-medium">Vence</p>
+                          <p className="text-sm text-gray-800 font-semibold">
+                            {new Date(resultData.usuario.pruebaSalud.vence).toLocaleDateString('es-AR')}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className={`mt-1 rounded-lg p-1 text-center border-2 ${
+                        resultData.usuario.pruebaSalud.diasRestantes > 0
+                          ? 'bg-green-50 border-green-300'
+                          : 'bg-red-50 border-red-300'
+                      }`}>
+                        <p className={`text-xs font-bold ${
+                          resultData.usuario.pruebaSalud.diasRestantes > 0
+                            ? 'text-green-700'
+                            : 'text-red-700'
+                        }`}>
+                          {resultData.usuario.pruebaSalud.diasRestantes > 0 ? '✅ Vigente' : '❌ Vencido'}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                </>
-              )}
-
-              {/* Botón cerrar */}
-              <button
-                onClick={() => setShowResultModal(false)}
-                className={`w-full mt-6 py-3 text-white font-bold rounded-lg transition-all shadow-md hover:shadow-lg ${
-                  resultData.exitoso
-                    ? 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700'
-                    : 'bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700'
-                }`}
-              >
-                Cerrar
-              </button>
+                  ) : (
+                    <div className="flex flex-col flex-1 justify-between">
+                      <div className="bg-red-50 border-2 border-red-300 rounded-lg p-3 text-center flex-1 flex flex-col justify-center">
+                        <p className="text-2xl mb-1">🏥</p>
+                        <p className="text-sm font-bold text-red-700">Sin Apto Médico</p>
+                        <p className="text-xs text-gray-600 mt-1">Debe presentar certificado</p>
+                      </div>
+                      <div className="mt-1 rounded-lg p-1 text-center border-2 bg-red-50 border-red-300">
+                        <p className="text-xs font-bold text-red-700">❌ Sin Apto</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
 
-      {/* 🖼️ LIGHTBOX PARA AMPLIAR LA FOTO */}
+            {/* Motivo del rechazo - COMPACTO */}
+            {!resultData.exitoso && resultData.motivoRechazo && (
+              <div className="bg-red-50 border-2 border-red-200 rounded-lg p-3">
+                <div className="flex items-start">
+                  <span className="text-2xl mr-2">
+                    {obtenerInfoMotivo(resultData.motivoRechazo).emoji}
+                  </span>
+                  <div className="flex-1">
+                    <p className="text-xs text-red-600 font-bold uppercase mb-1">Motivo del Rechazo</p>
+                    <p className={`text-base font-bold ${obtenerInfoMotivo(resultData.motivoRechazo).color}`}>
+                      {obtenerInfoMotivo(resultData.motivoRechazo).texto}
+                    </p>
+                    <p className="text-xs text-gray-600 mt-1">
+                      {resultData.motivoRechazo === 'qr_invalido' && 'El código QR no es válido o no existe en el sistema.'}
+                      {resultData.motivoRechazo === 'usuario_inactivo' && 'El usuario debe activar su cuenta.'}
+                      {resultData.motivoRechazo === 'usuario_baneado' && 'El usuario ha sido suspendido del sistema.'}
+                      {resultData.motivoRechazo === 'sin_abono' && 'El usuario no tiene un abono asignado.'}
+                      {resultData.motivoRechazo === 'abono_no_pagado' && 'El abono existe pero aún no ha sido pagado.'}
+                      {resultData.motivoRechazo === 'abono_vencido' && 'El abono ha expirado y debe renovarse.'}
+                      {resultData.motivoRechazo === 'sin_prueba_salud' && 'Falta el certificado de aptitud física (apto médico).'}
+                      {resultData.motivoRechazo === 'prueba_salud_vencida' && 'El certificado de aptitud física ha vencido.'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Hora de acceso - COMPACTO */}
+            <div className="bg-gray-50 rounded-lg p-2 flex items-center justify-center">
+              <span className="text-lg mr-2">🕐</span>
+              <div>
+                <p className="text-xs text-gray-500 font-medium">Hora de Escaneo</p>
+                <p className="text-sm text-gray-800 font-semibold">
+                  {new Date().toLocaleTimeString('es-AR', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                  })}
+                </p>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Botón cerrar - COMPACTO */}
+        <button
+          onClick={() => setShowResultModal(false)}
+          className={`w-full py-2.5 text-white font-bold rounded-lg transition-all shadow-md hover:shadow-lg ${
+            resultData.exitoso
+              ? 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700'
+              : 'bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700'
+          }`}
+        >
+          Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+      {/* LIGHTBOX PARA AMPLIAR LA FOTO */}
       {showPhotoLightbox && resultData?.usuario && (
         <div 
           className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center p-4 z-[60] cursor-pointer animate-[fadeIn_0.2s_ease-in-out]"
